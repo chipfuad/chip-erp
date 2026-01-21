@@ -11,6 +11,10 @@ Crear un sistema de gestión de recursos empresariales modular y escalable.
 - Gestión de **Pedimentos**.
 - Control de **Partidas** (mercancías, fracciones arancelarias, valores en aduana).
 
+### 2. Inventario (Nuevo)
+- Gestión de **Productos**.
+- Control de **Proveedores**.
+
 ## Stack Tecnológico
 - Node.js & Express
 - TypeScript
