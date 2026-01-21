@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ingreso de Productos - Chip ERP</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #e9ecef; display: flex; justify-content: center; padding-top: 50px; }
+        .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 500px; }
+        h2 { text-align: center; color: #333; margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: 600; color: #555; }
+        input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+        input:focus { border-color: #007bff; outline: none; }
+        button { width: 100%; padding: 12px; background-color: #007bff; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; transition: background 0.3s; margin-top: 10px; }
+        button:hover { background-color: #0056b3; }
+        .status { margin-top: 15px; text-align: center; font-weight: bold; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>📦 Nuevo Producto</h2>
+    <form id="productForm">
+        <div class="form-group">
+            <label>SKU (Código único)*</label>
+            <input type="text" id="sku" placeholder="Ej: GAL-CHO-01" required>
+        </div>
+
+        <div class="form-group">
+            <label>Nombre del Artículo*</label>
+            <input type="text" id="nombre" placeholder="Ej: Galletas Chocolate" required>
+        </div>
+
+        <div class="form-group">
+            <label>Gramaje</label>
+            <input type="text" id="gramaje" placeholder="Ej: 140g">
+        </div>
+
+        <div class="form-group">
+            <label>País de Origen</label>
+            <input type="text" id="paisOrigen" placeholder="Ej: Turquía">
+        </div>
+
+        <div class="form-group" style="display: flex; gap: 10px;">
+            <div style="flex: 1;">
+                <label>Und. por Caja</label>
+                <input type="number" id="cantidadPorCaja">
+            </div>
+            <div style="flex: 1;">
+                <label>Und. por Display</label>
+                <input type="number" id="cantidadPorDisplay">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Precio FOB (USD)</label>
+            <input type="number" step="0.01" id="precioFOB" placeholder="0.00">
+        </div>
+
+        <button type="submit">Guardar Producto</button>
+        <div id="statusMessage" class="status"></div>
+    </form>
+</div>
+
+<script>
+    document.getElementById('productForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const statusDiv = document.getElementById('statusMessage');
+        statusDiv.textContent = "Guardando...";
+        statusDiv.className = "status";
+
+        const data = {
+            sku: document.getElementById('sku').value,
+            nombre: document.getElementById('nombre').value,
+            gramaje: document.getElementById('gramaje').value,
+            paisOrigen: document.getElementById('paisOrigen').value,
+            cantidadPorCaja: document.getElementById('cantidadPorCaja').value,
+            cantidadPorDisplay: document.getElementById('cantidadPorDisplay').value,
+            precioFOB: document.getElementById('precioFOB').value
+        };
+
+        try {
+            // Ajusta el puerto 3000 si usas otro
+            const response = await fetch('http://localhost:3000/api/productos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            const result = await response.json();
+
+            if(response.ok) {
+                statusDiv.textContent = "✅ " + result.message;
+                statusDiv.className = "status success";
+                document.getElementById('productForm').reset();
+            } else {
+                statusDiv.textContent = "❌ " + (result.error || "Error desconocido");
+                statusDiv.className = "status error";
+            }
+        } catch (error) {
+            statusDiv.textContent = "❌ Error: No se pudo conectar con el servidor.";
+            statusDiv.className = "status error";
+        }
+    });
+</script>
+
+</body>
+</html>

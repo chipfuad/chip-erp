@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chip ERP - COMEX</title>
+    <!-- Chart.js para los gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* --- Estilos Generales Dark Mode --- */
+        :root {
+            --bg-dark: #1a1a2e;
+            --bg-panel: #16213e;
+            --primary: #e94560;
+            --accent: #4cc9f0;
+            --text-main: #e0e0e0;
+            --text-muted: #a0a0a0;
+            --border: #0f3460;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        
+        body { background-color: var(--bg-dark); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
+        
+        /* --- Sidebar (Menú Vertical) --- */
+        .sidebar { width: 260px; background-color: var(--bg-panel); display: flex; flex-direction: column; border-right: 1px solid var(--border); box-shadow: 2px 0 10px rgba(0,0,0,0.3); z-index: 10; }
+        .logo { padding: 25px; font-size: 1.8rem; font-weight: bold; color: var(--accent); text-align: center; border-bottom: 1px solid var(--border); letter-spacing: 1px; }
+        
+        .menu { flex: 1; overflow-y: auto; padding-top: 20px; }
+        .menu-item { 
+            padding: 15px 25px; cursor: pointer; transition: all 0.3s; 
+            color: var(--text-muted); display: flex; align-items: center; text-decoration: none; font-size: 1rem;
+            border-left: 4px solid transparent;
+        }
+        .menu-item:hover, .menu-item.active { 
+            background-color: rgba(76, 201, 240, 0.1); 
+            color: #fff; 
+            border-left: 4px solid var(--accent); 
+        }
+        
+        /* --- Contenido Principal --- */
+        .main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+        
+        .top-bar { 
+            height: 70px; background-color: var(--bg-panel); border-bottom: 1px solid var(--border); 
+            display: flex; align-items: center; padding: 0 30px; justify-content: space-between; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .top-bar h2 { font-weight: 400; color: var(--text-main); }
+        
+        .content-scroll { flex: 1; overflow-y: auto; padding: 30px; }
+
+        /* --- Grids y Tarjetas --- */
+        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 25px; margin-bottom: 30px; }
+        
+        .card { background-color: var(--bg-panel); border-radius: 12px; padding: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); border: 1px solid var(--border); }
+        .card h3 { color: var(--accent); margin-bottom: 20px; font-size: 1.1rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        /* --- Botones y Tablas --- */
+        .btn { 
+            background-color: var(--primary); color: white; border: none; padding: 10px 20px; 
+            border-radius: 6px; cursor: pointer; font-size: 0.9rem; transition: 0.3s; font-weight: bold; 
+            box-shadow: 0 4px 15px rgba(233, 69, 96, 0.4);
+        }
+        .btn:hover { background-color: #c32d48; transform: translateY(-2px); }
+        .btn:disabled { background-color: #555; cursor: not-allowed; transform: none; box-shadow: none; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid var(--border); color: #ccc; }
+        th { color: var(--accent); font-weight: 600; text-transform: uppercase; font-size: 0.85rem; }
+        tr:hover { background-color: rgba(255,255,255,0.05); }
+        .badge { background: rgba(76, 201, 240, 0.2); color: var(--accent); padding: 4px 10px; border-radius: 4px; font-size: 0.8em; font-weight: bold; }
+
+        /* --- Estilo Kanban (Ganbang) --- */
+        .kanban-board { display: flex; gap: 20px; overflow-x: auto; padding-bottom: 10px; }
+        .kanban-column { 
+            min-width: 280px; background-color: #0f182e; border-radius: 8px; padding: 15px; 
+            border: 1px solid var(--border);
+        }
+        .kanban-header { 
+            font-weight: bold; color: #fff; margin-bottom: 15px; padding-bottom: 10px; 
+            border-bottom: 2px solid var(--primary); display: flex; justify-content: space-between;
+        }
+        .kanban-card { 
+            background-color: var(--bg-panel); padding: 15px; margin-bottom: 15px; border-radius: 6px; 
+            border-left: 4px solid var(--accent); cursor: grab; transition: transform 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .kanban-card:hover { transform: translateY(-3px); background-color: #1f2b4d; }
+        .kanban-card small { display: block; margin-top: 5px; color: var(--text-muted); font-size: 0.8em; }
+    </style>
+</head>
+<body>
+    <!-- Menú Lateral Izquierdo -->
+    <aside class="sidebar">
+        <div class="logo">CHIP ERP</div>
+        <nav class="menu">
+            <a class="menu-item active" onclick="selectModule(this, 'COMEX')">COMEX</a>
+            <a class="menu-item" onclick="selectModule(this, 'RRHH')">RRHH</a>
+            <a class="menu-item" onclick="selectModule(this, 'Contabilidad')">Contabilidad</a>
+            <a class="menu-item" onclick="selectModule(this, 'Tesorería')">Tesorería</a>
+            <a class="menu-item" onclick="selectModule(this, 'Servicio Técnico')">Servicio Técnico</a>
+            <a class="menu-item" onclick="selectModule(this, 'Digitación')">Digitación</a>
+            <a class="menu-item" onclick="selectModule(this, 'Operaciones')">Operaciones</a>
+        </nav>
+    </aside>
+
+    <!-- Contenido Principal -->
+    <main class="main-content">
+        <header class="top-bar">
+            <h2 id="page-title">Panel de Control - COMEX</h2>
+            <div style="color: var(--accent);">Usuario: <strong>Admin</strong></div>
+        </header>
+
+        <div class="content-scroll">
+            
+            <!-- Vista COMEX (Contenedor Principal) -->
+            <div id="view-COMEX">
+            <!-- Sección de Gráficos -->
+            <div class="dashboard-grid">
+                <div class="card">
+                    <h3>Importaciones vs Exportaciones</h3>
+                    <canvas id="barChart"></canvas>
+                </div>
+                <div class="card">
+                    <h3>Tendencia de Valor Aduana</h3>
+                    <canvas id="lineChart"></canvas>
+                </div>
+                <div class="card">
+                    <h3>Distribución por Clave</h3>
+                    <canvas id="pieChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Sección Estilo Kanban (Ganbang) -->
+            <div class="card" style="margin-bottom: 30px;">
+                <h3>Flujo de Operaciones (Kanban)</h3>
+                <div class="kanban-board">
+                    <div class="kanban-column">
+                        <div class="kanban-header"><span>📥 Pendientes</span> <span>3</span></div>
+                        <div class="kanban-card">Pedimento A1-998<small>iPhone 15 Pro</small></div>
+                        <div class="kanban-card">Pedimento A1-999<small>Samsung S24</small></div>
+                        <div class="kanban-card">Pedimento V1-001<small>Lote Accesorios</small></div>
+                    </div>
+                    <div class="kanban-column">
+                        <div class="kanban-header"><span>⚙️ En Proceso</span> <span>2</span></div>
+                        <div class="kanban-card" style="border-color: #f1c40f">Validación Aduana<small>Expediente #445</small></div>
+                        <div class="kanban-card" style="border-color: #f1c40f">Pago de Impuestos<small>Ref: 8877</small></div>
+                    </div>
+                    <div class="kanban-column">
+                        <div class="kanban-header"><span>✅ Finalizado</span> <span>5</span></div>
+                        <div class="kanban-card" style="border-color: #2ecc71">Despacho #112<small>Entregado en almacén</small></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabla de Datos -->
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <h3>Registros de Pedimentos (DB)</h3>
+                    <button onclick="crearPedimento()" id="btnCrear" class="btn">＋ Nuevo Pedimento</button>
+                </div>
+                
+                <!-- Contenedor con scroll horizontal para la tabla ancha -->
+                <div style="overflow-x: auto;">
+                <table id="tabla-pedimentos" style="min-width: 2000px; font-size: 0.85rem;">
+                    <thead>
+                        <tr>
+                            <th>F. Corte</th>
+                            <th>Cve-Art</th>
+                            <th>Artículo</th>
+                            <th>Stock Actual</th>
+                            <th>Cons. Prom.</th>
+                            <th>Meses Stock (Proy)</th>
+                            <th>Meses Stock (Real)</th>
+                            <th>Final Stock (Físico)</th>
+                            <th>F. Vencimiento</th>
+                            <th>F. Ped/Sug</th>
+                            <th>PF/Fact</th>
+                            <th>ETD</th>
+                            <th>U. Transito</th>
+                            <th>ETA</th>
+                            <th>Final Stock (Total)</th>
+                            <th>Box Nota</th>
+                            <th>F. Sug. Pedido</th>
+                            <th>Alerta Pedir</th>
+                            <th>Mes Ventas</th>
+                            <th>V. Maquina</th>
+                            <th>V. Mayorista</th>
+                            <th>Total Ventas</th>
+                            <th>% Cump.</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+                </div>
+            </div>
+            </div> <!-- Fin view-COMEX -->
+
+            <!-- Vista RRHH -->
+            <div id="view-RRHH" style="display: none;">
+                <div class="dashboard-grid">
+                    <div class="card"><h3>Distribución de Personal</h3><canvas id="chart-rrhh-1"></canvas></div>
+                    <div class="card"><h3>Ausentismo vs Tiempo</h3><canvas id="chart-rrhh-2"></canvas></div>
+                    <div class="card"><h3>Evaluación de Desempeño</h3><canvas id="chart-rrhh-3"></canvas></div>
+                </div>
+                <div class="card" style="margin-bottom: 30px;">
+                    <h3>Proceso de Selección (Kanban)</h3>
+                    <div class="kanban-board">
+                        <div class="kanban-column"><div class="kanban-header"><span>📄 CVs Recibidos</span> <span>12</span></div><div class="kanban-card">Dev Frontend<small>3 candidatos</small></div></div>
+                        <div class="kanban-column"><div class="kanban-header"><span>🗣️ Entrevistas</span> <span>4</span></div><div class="kanban-card">Jefe de Ventas<small>Mañana 10:00</small></div></div>
+                        <div class="kanban-column"><div class="kanban-header"><span>✅ Contratados</span> <span>2</span></div><div class="kanban-card">Soporte TI<small>Ingreso: Lunes</small></div></div>
+                    </div>
+                </div>
+                <div class="card"><h3>Directorio de Empleados</h3><table><thead><tr><th>Legajo</th><th>Nombre</th><th>Puesto</th><th>Departamento</th></tr></thead><tbody><tr><td>E001</td><td>Roberto Gómez</td><td>Director</td><td>Gerencia</td></tr><tr><td>E045</td><td>Lucía Méndez</td><td>Analista Sr</td><td>Finanzas</td></tr></tbody></table></div>
+            </div>
+
+            <!-- Vista Contabilidad -->
+            <div id="view-Contabilidad" style="display: none;">
+                <div class="dashboard-grid">
+                    <div class="card"><h3>Ingresos vs Gastos</h3><canvas id="chart-cont-1"></canvas></div>
+                    <div class="card"><h3>Flujo de Caja</h3><canvas id="chart-cont-2"></canvas></div>
+                    <div class="card"><h3>Presupuesto por Área</h3><canvas id="chart-cont-3"></canvas></div>
+                </div>
+                <div class="card" style="margin-bottom: 30px;">
+                    <h3>Cierre Mensual</h3>
+                    <div class="kanban-board">
+                        <div class="kanban-column"><div class="kanban-header"><span>📥 Facturas</span> <span>45</span></div><div class="kanban-card">Prov. Internet<small>$500 USD</small></div></div>
+                        <div class="kanban-column"><div class="kanban-header"><span>⚙️ Conciliación</span> <span>10</span></div><div class="kanban-card">Banco Nacional<small>Pendiente extracto</small></div></div>
+                        <div class="kanban-column"><div class="kanban-header"><span>📊 Reportes</span> <span>1</span></div><div class="kanban-card">Balance General<small>En revisión</small></div></div>
+                    </div>
+                </div>
+                <div class="card"><h3>Libro Diario</h3><table><thead><tr><th>Fecha</th><th>Cuenta</th><th>Debe</th><th>Haber</th></tr></thead><tbody><tr><td>2023-10-01</td><td>Caja</td><td>$10,000</td><td>-</td></tr><tr><td>2023-10-01</td><td>Ventas</td><td>-</td><td>$10,000</td></tr></tbody></table></div>
+            </div>
+
+            <!-- Vista Tesorería -->
+            <div id="view-Tesoreria" style="display: none;">
+                <div class="dashboard-grid">
+                    <div class="card"><h3>Liquidez Disponible</h3><canvas id="chart-tes-1"></canvas></div>
+                    <div class="card"><h3>Proyección de Pagos</h3><canvas id="chart-tes-2"></canvas></div>
+                    <div class="card"><h3>Instrumentos Financieros</h3><canvas id="chart-tes-3"></canvas></div>
+                </div>
+                <div class="card" style="margin-bottom: 30px;">
+                    <h3>Gestión de Pagos</h3>
+                    <div class="kanban-board">
+                        <div class="kanban-column"><div class="kanban-header"><span>🕒 Por Autorizar</span> <span>5</span></div><div class="kanban-card">Nómina Quincenal<small>Prioridad Alta</small></div></div>
+                        <div class="kanban-column"><div class="kanban-header"><span>🏦 En Banco</span> <span>2</span></div><div class="kanban-card">Impuestos<small>Procesando</small></div></div>
+                        <div class="kanban-column"><div class="kanban-header"><span>💰 Pagado</span> <span>20</span></div><div class="kanban-card">Proveedores Varios<small>Lote #44</small></div></div>
+                    </div>
+                </div>
+                <div class="card"><h3>Movimientos Bancarios</h3><table><thead><tr><th>Ref</th><th>Banco</th><th>Concepto</th><th>Monto</th></tr></thead><tbody><tr><td>TRF-99</td><td>Santander</td><td>Pago Servicios</td><td>-$1,200</td></tr></tbody></table></div>
+            </div>
+
+            <!-- Vista Servicio Técnico -->
+            <div id="view-ServicioTecnico" style="display: none;">
+                <div class="dashboard-grid">
+                    <div class="card"><h3>Tickets por Estado</h3><canvas id="chart-st-1"></canvas></div>
+                    <div class="card"><h3>Tiempo de Respuesta</h3><canvas id="chart-st-2"></canvas></div>
+                    <div class="card"><h3>Satisfacción Cliente</h3><canvas id="chart-st-3"></canvas></div>
+                </div>
+                <div class="card" style="margin-bottom: 30px;">
+                    <h3>Mesa de Ayuda</h3>
+                    <div class="kanban-board">
+                        <div class="kanban-column"><div class="kanban-header"><span>🔥 Nuevos</span> <span>8</span></div><div class="kanban-card">Error Login<small>Usuario: Admin</small></div></div>
+                        <div class="kanban-column"><div class="kanban-header"><span>🔧 En Reparación</span> <span>3</span></div><div class="kanban-card">Cambio Disco Duro<small>Laptop #44</small></div></div>
+                        <div class="kanban-column"><div class="kanban-header"><span>✅ Resuelto</span> <span>15</span></div><div class="kanban-card">Instalación Office<small>Remoto</small></div></div>
+                    </div>
+                </div>
+                <div class="card"><h3>Tickets Recientes</h3><table><thead><tr><th>#</th><th>Asunto</th><th>Asignado a</th><th>Prioridad</th></tr></thead><tbody><tr><td>1004</td><td>No imprime</td><td>Juan T.</td><td>Media</td></tr></tbody></table></div>
+            </div>
+
+            <!-- Vista Digitación -->
+            <div id="view-Digitacion" style="display: none;">
+                <div class="dashboard-grid">
+                    <div class="card"><h3>Registros por Hora</h3><canvas id="chart-dig-1"></canvas></div>
+                    <div class="card"><h3>Precisión de Datos</h3><canvas id="chart-dig-2"></canvas></div>
+                    <div class="card"><h3>Tipos de Documento</h3><canvas id="chart-dig-3"></canvas></div>
+                </div>
+                <div class="card" style="margin-bottom: 30px;">
+                    <h3>Cola de Procesamiento</h3>
+                    <div class="kanban-board">
+                        <div class="kanban-column"><div class="kanban-header"><span>📥 Escaneados</span> <span>150</span></div><div class="kanban-card">Lote Facturas A<small>Pendiente OCR</small></div></div>
+                        <div class="kanban-column"><div class="kanban-header"><span>⌨️ En Digitación</span> <span>4</span></div><div class="kanban-card">Expedientes RRHH<small>Manual</small></div></div>
+                        <div class="kanban-column"><div class="kanban-header"><span>💾 Guardado</span> <span>890</span></div><div class="kanban-card">Lote #22<small>Validado</small></div></div>
+                    </div>
+                </div>
+                <div class="card"><h3>Log de Actividad</h3><table><thead><tr><th>Usuario</th><th>Lote</th><th>Registros</th><th>Hora</th></tr></thead><tbody><tr><td>operador1</td><td>L-2023-001</td><td>50</td><td>09:00 AM</td></tr></tbody></table></div>
+            </div>
+
+            <!-- Vista Operaciones -->
+            <div id="view-Operaciones" style="display: none;">
+                <div class="dashboard-grid">
+                    <div class="card"><h3>Eficiencia OEE</h3><canvas id="chart-ops-1"></canvas></div>
+                    <div class="card"><h3>Producción Diaria</h3><canvas id="chart-ops-2"></canvas></div>
+                    <div class="card"><h3>Mermas</h3><canvas id="chart-ops-3"></canvas></div>
+                </div>
+                <div class="card" style="margin-bottom: 30px;">
+                    <h3>Control de Planta</h3>
+                    <div class="kanban-board">
+                        <div class="kanban-column"><div class="kanban-header"><span>📅 Planificado</span> <span>5</span></div><div class="kanban-card">Orden #990<small>Materia Prima OK</small></div></div>
+                        <div class="kanban-column"><div class="kanban-header"><span>⚙️ En Proceso</span> <span>2</span></div><div class="kanban-card">Orden #988<small>Línea 1 - 50%</small></div></div>
+                        <div class="kanban-column"><div class="kanban-header"><span>📦 Despacho</span> <span>8</span></div><div class="kanban-card">Orden #985<small>Listo para carga</small></div></div>
+                    </div>
+                </div>
+                <div class="card"><h3>Órdenes Activas</h3><table><thead><tr><th>Orden</th><th>Producto</th><th>Cantidad</th><th>Avance</th></tr></thead><tbody><tr><td>OP-202</td><td>Widget X</td><td>5000</td><td>75%</td></tr></tbody></table></div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        // --- Configuración de Gráficos (Chart.js) ---
+        const commonOptions = {
+            responsive: true,
+            plugins: { legend: { labels: { color: '#a0a0a0' } } },
+            scales: {
+                y: { grid: { color: '#2a2a40' }, ticks: { color: '#a0a0a0' } },
+                x: { grid: { color: '#2a2a40' }, ticks: { color: '#a0a0a0' } }
+            }
+        };
+
+        new Chart(document.getElementById('barChart'), {
+            type: 'bar',
+            data: {
+                labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May'],
+                datasets: [{ label: 'Operaciones', data: [12, 19, 3, 5, 2], backgroundColor: 'rgba(76, 201, 240, 0.6)' }]
+            }, options: commonOptions
+        });
+
+        new Chart(document.getElementById('lineChart'), {
+            type: 'line',
+            data: {
+                labels: ['S1', 'S2', 'S3', 'S4'],
+                datasets: [{ label: 'Valor USD', data: [5000, 15000, 10000, 22000], borderColor: '#e94560', tension: 0.4 }]
+            }, options: commonOptions
+        });
+
+        new Chart(document.getElementById('pieChart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['A1', 'V1', 'RT'],
+                datasets: [{ data: [30, 50, 20], backgroundColor: ['#4cc9f0', '#e94560', '#f1c40f'], borderWidth: 0 }]
+            }, options: { plugins: { legend: { labels: { color: '#a0a0a0' } } } }
+        });
+
+        // --- Lógica de Navegación (Menú Lateral) ---
+        function selectModule(element, moduleName) {
+            // 1. Actualizar visualmente el menú (clase active)
+            document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+
+            // 2. Actualizar título de la barra superior
+            document.getElementById('page-title').innerText = 'Panel de Control - ' + moduleName;
+
+            // 3. Ocultar todas las vistas
+            document.querySelectorAll('[id^="view-"]').forEach(v => v.style.display = 'none');
+
+            // 4. Mostrar la vista seleccionada (Mapeo de nombres a IDs)
+            const map = {
+                'COMEX': 'view-COMEX',
+                'RRHH': 'view-RRHH',
+                'Contabilidad': 'view-Contabilidad',
+                'Tesorería': 'view-Tesoreria',
+                'Servicio Técnico': 'view-ServicioTecnico',
+                'Digitación': 'view-Digitacion',
+                'Operaciones': 'view-Operaciones'
+            };
+            const viewId = map[moduleName];
+            const viewEl = document.getElementById(viewId);
+            if(viewEl) viewEl.style.display = 'block';
+        }
+
+        // --- Lógica de la Aplicación ---
+        cargarDatos();
+
+        async function cargarDatos() {
+            try {
+                const respuesta = await fetch('/api/comex/lista');
+                const json = await respuesta.json();
+                
+                const cuerpoTabla = document.querySelector('#tabla-pedimentos tbody');
+                cuerpoTabla.innerHTML = ''; 
+                
+                json.datos.forEach(p => {
+                    const fila = document.createElement('tr');
+                    // Función simple para formatear fecha o devolver vacío
+                    const fmtDate = (d) => d ? new Date(d).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
+                    
+                    fila.innerHTML = `
+                        <td>${fmtDate(p.fechaCorte)}</td>
+                        <td><span class="badge">${p.cveArt || ''}</span></td>
+                        <td><strong>${p.articulo || ''}</strong></td>
+                        <td>${p.stockActual}</td>
+                        <td>${p.consumoPromedio}</td>
+                        <td>${p.mesesStockProy}</td>
+                        <td>${p.mesesStockReal}</td>
+                        <td>${p.finalStockFisico}</td>
+                        <td>${fmtDate(p.fechaVencimiento)}</td>
+                        <td>${fmtDate(p.fechaPedSug)}</td>
+                        <td>${p.pfFact || ''}</td>
+                        <td>${fmtDate(p.etd)}</td>
+                        <td>${p.unidadesTransito}</td>
+                        <td>${fmtDate(p.eta)}</td>
+                        <td>${fmtDate(p.finalStockTotal)}</td>
+                        <td>${p.boxNota || ''}</td>
+                        <td>${fmtDate(p.fechaSugeridaPedido)}</td>
+                        <td><span style="color: #e94560">${fmtDate(p.alertaFechaPedir)}</span></td>
+                        <td>${p.mesVentas || ''}</td>
+                        <td>${p.ventasMaquina}</td>
+                        <td>${p.ventasMayorista}</td>
+                        <td>${p.totalVentas}</td>
+                        <td>${(p.porcentajeCumplimiento * 100).toFixed(0)}%</td>
+                    `;
+                    cuerpoTabla.appendChild(fila);
+                });
+            } catch (e) {
+                console.error(e);
+                alert('Error al cargar la lista: ' + e.message);
+            }
+        }
+
+        async function crearPedimento() {
+            const btn = document.getElementById('btnCrear');
+            btn.disabled = true; 
+            btn.innerText = 'Procesando...';
+
+            try {
+                console.log('Intentando crear pedimento...');
+                const respuesta = await fetch('/api/comex/crear-prueba');
+                
+                if (!respuesta.ok) {
+                    throw new Error('El servidor respondió con error: ' + respuesta.status);
+                }
+
+                const datos = await respuesta.json();
+                console.log('Respuesta del servidor:', datos);
+                
+                // Recargamos la tabla
+                await cargarDatos();
+                
+            } catch (error) {
+                console.error(error);
+                alert(' ERROR: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = ' Nuevo Pedimento';
+            }
+        }
+
+        // --- Inicialización de Gráficos de otros módulos ---
+        function createChart(id, type, labels, data, label, colors) {
+            const ctx = document.getElementById(id);
+            if(!ctx) return;
+            new Chart(ctx, {
+                type: type,
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: label,
+                        data: data,
+                        backgroundColor: colors || 'rgba(76, 201, 240, 0.6)',
+                        borderColor: colors || '#e94560',
+                        borderWidth: 1
+                    }]
+                },
+                options: commonOptions
+            });
+        }
+
+        // Inicializar gráficos dummy al cargar
+        (function initAllCharts() {
+            // RRHH
+            createChart('chart-rrhh-1', 'pie', ['Admin', 'Ventas', 'TI', 'Ops'], [10, 30, 15, 45], 'Personal', ['#e94560', '#4cc9f0', '#f1c40f', '#2ecc71']);
+            createChart('chart-rrhh-2', 'line', ['S1', 'S2', 'S3', 'S4'], [2, 5, 1, 3], 'Ausencias');
+            createChart('chart-rrhh-3', 'bar', ['Ene', 'Feb', 'Mar'], [5, 2, 8], 'Contrataciones');
+            // Contabilidad
+            createChart('chart-cont-1', 'bar', ['Ene', 'Feb', 'Mar'], [50000, 45000, 60000], 'Ingresos');
+            createChart('chart-cont-2', 'line', ['S1', 'S2', 'S3', 'S4'], [10000, 12000, 9000, 15000], 'Flujo');
+            createChart('chart-cont-3', 'doughnut', ['Marketing', 'Nomina', 'Infra'], [20, 50, 30], 'Presupuesto', ['#e94560', '#4cc9f0', '#f1c40f']);
+            // Tesoreria, ST, etc... (Simplificado para el ejemplo, se pueden agregar más aquí)
+            createChart('chart-tes-1', 'bar', ['Banco A', 'Banco B', 'Caja'], [100000, 50000, 5000], 'Saldos');
+            createChart('chart-st-1', 'doughnut', ['Abierto', 'En Proceso', 'Cerrado'], [10, 5, 20], 'Tickets', ['#e94560', '#f1c40f', '#2ecc71']);
+            createChart('chart-dig-1', 'bar', ['8am', '10am', '12pm', '2pm', '4pm'], [100, 250, 200, 150, 100], 'Registros');
+            createChart('chart-ops-1', 'doughnut', ['Disponibilidad', 'Rendimiento', 'Calidad'], [90, 85, 95], 'OEE', ['#2ecc71', '#f1c40f', '#4cc9f0']);
+        })();
+    </script>
+</body>
+</html>
