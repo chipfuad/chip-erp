@@ -63,11 +63,11 @@ Si el usuario pide "configurar inicio" o menciona que las terminales no tienen n
 *La IA debe leer esto para saber dónde retomar.*
 
 **✅ LO ÚLTIMO QUE HICIMOS:**
-- Backend: Endpoint POST `/api/productos` creado y probado.
-- Frontend: Modal de creación de productos integrado y funcionando.
-- Contexto: Archivo `GEMINI.md` creado para mantener la memoria del proyecto.
+- Git: Proyecto respaldado en GitHub.
+- Entorno: Automatización de terminales con `tasks.json`.
+- Backend: Endpoint DELETE `/api/productos/:id` agregado.
+- Frontend: Tabla actualizada con botón de eliminar.
 
 **🚀 LO QUE TOCA HACER AHORA (SIGUIENTE PASO):**
-- [ ] Agregar validaciones al formulario (campos obligatorios).
-- [ ] Implementar botón de "Eliminar Producto" en la tabla.
-- [ ] Automatizar el inicio de terminales con `tasks.json`.
+- [x] Frontend: Conectar la lógica de eliminación en `App.tsx`.
+- [ ] Frontend: Agregar validaciones al formulario en `App.tsx`.

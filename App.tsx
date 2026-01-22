@@ -16,7 +16,7 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend,
 
 // 2. Interfaz de tus Datos Reales
 interface Producto {
-  id?: number; // Opcional para nuevo producto
+  id?: number; 
   sku: string;
   nombre: string;
   precioFOB: number;
@@ -77,7 +77,6 @@ function App() {
 
       if (!res.ok) throw new Error('Error al crear producto');
 
-      // Recargar productos y limpiar
       fetchProductos();
       setShowModal(false);
       setNuevoProducto({
@@ -95,15 +94,31 @@ function App() {
     }
   };
 
-  // 4. Lógica de Negocio: Calcular Estadísticas Reales
+  // Función para manejar la eliminación
+  const handleDelete = async (id: number) => {
+    if (!window.confirm('¿Estás seguro de que deseas eliminar este producto?')) return;
+
+    try {
+      const res = await fetch(`http://localhost:3000/api/productos/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!res.ok) throw new Error('Error al eliminar producto');
+
+      fetchProductos(); 
+    } catch (err) {
+      console.error(err);
+      alert('❌ Error al eliminar el producto');
+    }
+  };
+
+  // 4. Lógica de Negocio
   const kpiTotalProductos = productos.length;
   
-  // Calcular precio promedio
   const kpiPrecioPromedio = productos.length > 0 
     ? (productos.reduce((acc, p) => acc + Number(p.precioFOB), 0) / productos.length).toFixed(2) 
     : "0.00";
 
-  // Agrupar productos por País para el gráfico
   const datosPorPais = useMemo(() => {
     const conteo: Record<string, number> = {};
     productos.forEach(p => {
@@ -113,7 +128,6 @@ function App() {
     return conteo;
   }, [productos]);
 
-  // Configuración de los datos del Gráfico
   const chartData = {
     labels: Object.keys(datosPorPais),
     datasets: [{
@@ -137,7 +151,6 @@ function App() {
     }
   };
 
-  // Estilos compartidos
   const inputStyle = {
     width: '100%',
     padding: '12px',
@@ -148,11 +161,11 @@ function App() {
     fontSize: '1rem'
   };
 
-  // 5. El Diseño Visual (Frontend)
+  // 5. El Diseño Visual
   return (
     <div style={{ display: 'flex', height: '100vh', backgroundColor: '#1a1a2e', color: 'white', fontFamily: 'Segoe UI, sans-serif' }}>
       
-      {/* --- BARRA LATERAL (SIDEBAR) --- */}
+      {/* SIDEBAR */}
       <aside style={{ width: '240px', backgroundColor: '#16213e', padding: '20px', display: 'flex', flexDirection: 'column', borderRight: '1px solid #0f3460' }}>
         <h2 style={{ color: '#4cc9f0', textAlign: 'center', marginBottom: '40px', letterSpacing: '2px', borderBottom: '2px solid #4cc9f0', paddingBottom: '10px' }}>
           CHIP ERP
@@ -189,10 +202,9 @@ function App() {
         </div>
       </aside>
 
-      {/* --- ZONA PRINCIPAL --- */}
+      {/* ZONA PRINCIPAL */}
       <main style={{ flex: 1, padding: '30px', overflowY: 'auto' }}>
         
-        {/* Cabecera */}
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
           <div>
             <h1 style={{ margin: 0, fontSize: '2rem' }}>Resumen Ejecutivo</h1>
@@ -213,33 +225,27 @@ function App() {
           </div>
         )}
 
-        {/* --- VISTA DASHBOARD --- */}
+        {/* VISTA DASHBOARD */}
         {!loading && !error && activeTab === 'DASHBOARD' && (
           <div>
-            {/* Tarjetas de Estadísticas (KPIs) */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginBottom: '30px' }}>
-              
               <div style={{ background: '#16213e', padding: '25px', borderRadius: '15px', position: 'relative', overflow: 'hidden' }}>
                 <div style={{ color: '#a0a0a0', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Total SKUs</div>
                 <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: 'white', marginTop: '10px' }}>{kpiTotalProductos}</div>
                 <div style={{ position: 'absolute', right: '-10px', top: '-10px', fontSize: '6rem', opacity: '0.05' }}>📦</div>
               </div>
-
               <div style={{ background: '#16213e', padding: '25px', borderRadius: '15px', position: 'relative', overflow: 'hidden' }}>
                 <div style={{ color: '#a0a0a0', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Precio Promedio (FOB)</div>
                 <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#2ecc71', marginTop: '10px' }}>${kpiPrecioPromedio}</div>
                 <div style={{ position: 'absolute', right: '-10px', top: '-10px', fontSize: '6rem', opacity: '0.05' }}>💲</div>
               </div>
-
               <div style={{ background: '#16213e', padding: '25px', borderRadius: '15px', position: 'relative', overflow: 'hidden' }}>
                 <div style={{ color: '#a0a0a0', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Países de Origen</div>
                 <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#f1c40f', marginTop: '10px' }}>{Object.keys(datosPorPais).length}</div>
                 <div style={{ position: 'absolute', right: '-10px', top: '-10px', fontSize: '6rem', opacity: '0.05' }}>🌍</div>
               </div>
-
             </div>
 
-            {/* Sección de Gráficos */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '20px' }}>
               <div style={{ background: '#16213e', padding: '25px', borderRadius: '15px' }}>
                 <h3 style={{ marginTop: 0, color: '#4cc9f0' }}>Distribución por Origen</h3>
@@ -247,7 +253,6 @@ function App() {
                   <Bar data={chartData} options={{ ...commonOptions, maintainAspectRatio: false }} />
                 </div>
               </div>
-
               <div style={{ background: '#16213e', padding: '25px', borderRadius: '15px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <h3 style={{ marginTop: 0, color: '#e94560', alignSelf: 'flex-start' }}>Proporción de Inventario</h3>
                 <div style={{ height: '250px', width: '100%', maxWidth: '300px' }}>
@@ -258,7 +263,7 @@ function App() {
           </div>
         )}
 
-        {/* --- VISTA TABLA DE PRODUCTOS --- */}
+        {/* VISTA TABLA DE PRODUCTOS */}
         {!loading && !error && activeTab === 'PRODUCTOS' && (
           <div style={{ background: '#16213e', borderRadius: '15px', padding: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.2)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -280,7 +285,8 @@ function App() {
                     <th style={{ padding: '15px' }}>Origen</th>
                     <th style={{ padding: '15px' }}>Gramaje</th>
                     <th style={{ padding: '15px', textAlign: 'center' }}>Caja (u)</th>
-                    <th style={{ padding: '15px', textAlign: 'right', borderRadius: '0 8px 8px 0' }}>Precio FOB</th>
+                    <th style={{ padding: '15px', textAlign: 'right' }}>Precio FOB</th>
+                    <th style={{ padding: '15px', textAlign: 'center', borderRadius: '0 8px 8px 0' }}>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -298,6 +304,15 @@ function App() {
                       <td style={{ padding: '15px', textAlign: 'right', color: '#2ecc71', fontWeight: 'bold', fontSize: '1.1rem' }}>
                         ${Number(prod.precioFOB).toFixed(2)}
                       </td>
+                      <td style={{ padding: '15px', textAlign: 'center' }}>
+                        <button 
+                          onClick={() => prod.id && handleDelete(prod.id)}
+                          style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.2rem', filter: 'grayscale(100%)', transition: 'filter 0.2s' }}
+                          title="Eliminar producto"
+                        >
+                          🗑️
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -311,7 +326,7 @@ function App() {
           </div>
         )}
 
-        {/* --- MODAL CREAR PRODUCTO --- */}
+        {/* MODAL CREAR PRODUCTO */}
         {showModal && (
           <div style={{ 
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 

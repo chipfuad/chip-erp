@@ -46,6 +46,19 @@ app.post('/api/productos', async (req, res) => {
   }
 });
 
+// 4. Ruta para eliminar un producto
+app.delete('/api/productos/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await prisma.producto.delete({
+      where: { id: Number(id) },
+    });
+    res.json({ message: 'Producto eliminado correctamente' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al eliminar producto' });
+  }
+});
+
 // --- ENCENDER EL MOTOR ---
 const PORT = 3000;
 app.listen(PORT, () => {

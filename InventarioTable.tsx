@@ -39,6 +39,7 @@ export interface InventarioTableProps {
   data: ComexRegistro[];
   isLoading?: boolean;
   onUpdate?: (id: number, field: string, value: any) => void;
+  onDelete?: (id: number) => void;
   view?: 'INVENTARIO' | 'PROYECCIONES' | 'DASHBOARD' | 'PROVEEDORES';
 }
 
@@ -78,6 +79,7 @@ const inputMatrixStyle: React.CSSProperties = {
 const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
 export const InventarioTable: React.FC<InventarioTableProps> = ({ data, isLoading, onUpdate, view = 'INVENTARIO' }) => {
+export const InventarioTable: React.FC<InventarioTableProps> = ({ data, isLoading, onUpdate, onDelete, view = 'INVENTARIO' }) => {
   const [editingKey, setEditingKey] = useState<string | null>(null);
   
   // --- Estado para el Modal de Historial ---
@@ -142,6 +144,7 @@ export const InventarioTable: React.FC<InventarioTableProps> = ({ data, isLoadin
               <th style={styles.th}>V. Mayorista</th>
               <th style={styles.th}>Total Ventas</th>
               <th style={styles.th}>% Cump.</th>
+              <th style={styles.th}>Acciones</th>
               </>
               )}
 
@@ -235,6 +238,21 @@ export const InventarioTable: React.FC<InventarioTableProps> = ({ data, isLoadin
                 <td style={styles.td}>{formatNumber(row.ventasMayorista)}</td>
                 <td style={styles.td}>{formatNumber(row.totalVentas)}</td>
                 <td style={styles.td}>{formatPercent(row.porcentajeCumplimiento)}</td>
+                
+                {/* Botón Eliminar */}
+                <td style={styles.td}>
+                  <button
+                    onClick={() => {
+                      if (window.confirm(`¿Seguro que deseas eliminar ${row.articulo}?`)) {
+                        onDelete && row.id && onDelete(row.id);
+                      }
+                    }}
+                    style={styles.btnDelete}
+                    title="Eliminar producto"
+                  >
+                    🗑️
+                  </button>
+                </td>
                 </>
                 )}
 
@@ -373,4 +391,6 @@ const styles: { [key: string]: React.CSSProperties } = {
   inputModal: { width: '100%', padding: '8px', background: '#1a1a2e', border: '1px solid #2a2a40', color: 'white', borderRadius: '4px', textAlign: 'center', fontSize: '1rem' },
   btnCancel: { padding: '8px 16px', background: 'transparent', border: '1px solid #a0a0a0', color: '#a0a0a0', borderRadius: '4px', cursor: 'pointer' },
   btnSave: { padding: '8px 16px', background: '#e94560', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }
+  btnSave: { padding: '8px 16px', background: '#e94560', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' },
+  btnDelete: { background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1rem', filter: 'grayscale(100%)', transition: 'filter 0.2s' }
 };

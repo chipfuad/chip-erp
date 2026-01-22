@@ -1,0 +1,33 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "🧠 BACKEND",
+      "type": "shell",
+      "command": "npx ts-node server.ts",
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": { "regexp": "^.*$" },
+        "background": { "activeOnStart": true, "beginsPattern": "^.*$", "endsPattern": "^.*$" }
+      },
+      "presentation": { "group": "terminals", "reveal": "always", "panel": "new" }
+    },
+    {
+      "label": "🎨 FRONTEND",
+      "type": "shell",
+      "command": "npx vite",
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": { "regexp": "^.*$" },
+        "background": { "activeOnStart": true, "beginsPattern": "^.*$", "endsPattern": "^.*$" }
+      },
+      "presentation": { "group": "terminals", "reveal": "always", "panel": "new" }
+    },
+    {
+      "label": "🚀 INICIAR PROYECTO",
+      "dependsOn": ["🧠 BACKEND", "🎨 FRONTEND"],
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": []
+    }
+  ]
+}
