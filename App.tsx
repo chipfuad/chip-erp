@@ -22,9 +22,9 @@ interface Producto {
   paisOrigen: string;
   nombre: string;
   gramaje: string;
-  cantidadPorCaja: number;
-  cantidadPorDisplay: number;
-  precioFOB: number;
+  cantidadPorCaja: number | string;
+  cantidadPorDisplay: number | string;
+  precioFOB: number | string;
   moneda: string;
 }
 
@@ -57,7 +57,7 @@ function App() {
     gramaje: '',
     cantidadPorCaja: 0,
     cantidadPorDisplay: 0,
-    precioFOB: 0,
+    precioFOB: '',
     moneda: 'USD'
   });
 
@@ -72,6 +72,10 @@ function App() {
     email: '',
     telefono: ''
   });
+
+  // Estados para Filtros
+  const [searchTermProductos, setSearchTermProductos] = useState('');
+  const [searchTermProveedores, setSearchTermProveedores] = useState('');
 
   // 3. Conexión al Cerebro (Backend)
   const fetchProductos = () => {
@@ -108,8 +112,11 @@ function App() {
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const precioFOBNum = Number(nuevoProducto.precioFOB);
+    const cantidadPorCajaNum = Number(nuevoProducto.cantidadPorCaja);
+
     // --- VALIDACIONES FRONTEND ---
-    if (nuevoProducto.precioFOB <= 0) {
+    if (isNaN(precioFOBNum) || precioFOBNum <= 0) {
       alert("⚠️ El Precio FOB debe ser mayor a 0");
       return;
     }
@@ -117,16 +124,24 @@ function App() {
       alert("⚠️ Debes seleccionar un Proveedor");
       return;
     }
-    if (nuevoProducto.cantidadPorCaja <= 0 || !Number.isInteger(Number(nuevoProducto.cantidadPorCaja))) {
+    if (cantidadPorCajaNum <= 0 || !Number.isInteger(cantidadPorCajaNum)) {
       alert("⚠️ La Cantidad por Caja debe ser un número entero mayor a 0");
       return;
     }
     // Chequeo de duplicados (excluyendo el producto actual si se está editando)
-    if (productos.some(p => p.sku.toLowerCase() === nuevoProducto.sku.toLowerCase() && p.id !== nuevoProducto.id)) {
-      alert("⚠️ El SKU ya existe en el inventario. Usa uno único.");
+    const skuNormalizado = nuevoProducto.sku.trim().toLowerCase();
+    const productoDuplicado = productos.find(p => p.sku.trim().toLowerCase() === skuNormalizado && p.id !== nuevoProducto.id);
+    
+    if (productoDuplicado) {
+      alert(`⚠️ El SKU "${nuevoProducto.sku}" ya está siendo usado por el producto: "${productoDuplicado.nombre}".\n\nPor favor, ingresa un código único.`);
       return;
     }
     // -----------------------------
+
+    const productoAEnviar = {
+      ...nuevoProducto,
+      precioFOB: precioFOBNum
+    };
 
     try {
       const method = nuevoProducto.id ? 'PUT' : 'POST';
@@ -137,7 +152,7 @@ function App() {
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(nuevoProducto)
+        body: JSON.stringify(productoAEnviar)
       });
 
       if (!res.ok) throw new Error('Error al guardar producto');
@@ -150,9 +165,9 @@ function App() {
         paisOrigen: '',
         nombre: '',
         gramaje: '',
-        cantidadPorCaja: 0,
-        cantidadPorDisplay: 0,
-        precioFOB: 0,
+        cantidadPorCaja: '',
+        cantidadPorDisplay: '',
+        precioFOB: '',
         moneda: 'USD'
       });
       alert(nuevoProducto.id ? '✅ Producto actualizado' : '✅ Producto creado exitosamente');
@@ -281,6 +296,32 @@ function App() {
   const getNombreProveedor = (id?: number) => {
     return proveedores.find(p => p.id === id)?.nombre || '---';
   };
+
+  // Lógica de Filtrado
+  const productosFiltrados = useMemo(() => {
+    return productos.filter(p => {
+      const term = searchTermProductos.toLowerCase();
+      const proveedor = proveedores.find(prov => prov.id === p.proveedorId)?.nombre.toLowerCase() || '';
+      return (
+        p.sku.toLowerCase().includes(term) ||
+        p.nombre.toLowerCase().includes(term) ||
+        p.paisOrigen.toLowerCase().includes(term) ||
+        proveedor.includes(term)
+      );
+    });
+  }, [productos, searchTermProductos, proveedores]);
+
+  const proveedoresFiltrados = useMemo(() => {
+    return proveedores.filter(p => {
+      const term = searchTermProveedores.toLowerCase();
+      return (
+        p.nombre.toLowerCase().includes(term) ||
+        p.pais.toLowerCase().includes(term) ||
+        p.ejecutivo.toLowerCase().includes(term) ||
+        p.email.toLowerCase().includes(term)
+      );
+    });
+  }, [proveedores, searchTermProveedores]);
 
   // Títulos dinámicos según la pestaña activa
   const getHeaderInfo = () => {
@@ -488,6 +529,12 @@ function App() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h3 style={{ margin: 0, color: '#4cc9f0' }}>Listado Maestro</h3>
               <div style={{ display: 'flex', gap: '10px' }}>
+                <input 
+                  placeholder="🔍 Buscar SKU, Nombre, Origen..." 
+                  value={searchTermProductos}
+                  onChange={e => setSearchTermProductos(e.target.value)}
+                  style={{ ...inputStyle, width: '250px', padding: '8px', fontSize: '0.9rem' }} 
+                />
                 <button 
                   onClick={fetchProductos}
                   style={{ background: '#16213e', color: '#4cc9f0', border: '1px solid #4cc9f0', padding: '10px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}
@@ -534,7 +581,7 @@ function App() {
                   </tr>
                 </thead>
                 <tbody>
-                  {productos.map((prod, i) => (
+                  {productosFiltrados.map((prod, i) => (
                     <tr key={prod.id} style={{ borderBottom: '1px solid #2a2a40', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)' }}>
                       <td style={{ padding: '15px' }}>{prod.sku}</td>
                       <td style={{ padding: '15px' }}>{getNombreProveedor(prod.proveedorId)}</td>
@@ -583,12 +630,20 @@ function App() {
           <div style={{ background: '#16213e', borderRadius: '15px', padding: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.2)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h3 style={{ margin: 0, color: '#4cc9f0' }}>Directorio de Proveedores</h3>
-              <button 
-                onClick={() => setShowModalProveedor(true)}
-                style={{ background: '#e94560', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', transition: 'transform 0.2s' }}
-              >
-                + Nuevo Proveedor
-              </button>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <input 
+                  placeholder="🔍 Buscar Proveedor..." 
+                  value={searchTermProveedores}
+                  onChange={e => setSearchTermProveedores(e.target.value)}
+                  style={{ ...inputStyle, width: '250px', padding: '8px', fontSize: '0.9rem' }} 
+                />
+                <button 
+                  onClick={() => setShowModalProveedor(true)}
+                  style={{ background: '#e94560', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', transition: 'transform 0.2s' }}
+                >
+                  + Nuevo Proveedor
+                </button>
+              </div>
             </div>
             
             <div style={{ overflowX: 'auto' }}>
@@ -604,7 +659,7 @@ function App() {
                   </tr>
                 </thead>
                 <tbody>
-                  {proveedores.map((prov, i) => (
+                  {proveedoresFiltrados.map((prov, i) => (
                     <tr key={prov.id} style={{ borderBottom: '1px solid #2a2a40', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)' }}>
                       <td style={{ padding: '15px' }}>{prov.nombre}</td>
                       <td style={{ padding: '15px' }}>{prov.pais}</td>
@@ -712,20 +767,50 @@ function App() {
 
                 <div style={{ display: 'flex', gap: '15px' }}>
                    <div style={{ flex: 1 }}>
-                    <label style={{ color: '#a0a0a0', fontSize: '0.8rem', marginBottom: '5px', display: 'block' }}>Peso/Vol (Gramaje)</label>
-                    <input 
-                      placeholder="Ej: 500g" 
-                      value={nuevoProducto.gramaje} 
-                      onChange={e => setNuevoProducto({...nuevoProducto, gramaje: e.target.value})} 
-                      style={inputStyle} 
-                    />
+                    <label style={{ color: '#a0a0a0', fontSize: '0.8rem', marginBottom: '5px', display: 'block' }}>Peso/Volumen</label>
+                    <div style={{ display: 'flex', gap: '5px' }}>
+                      <input 
+                        type="number"
+                        placeholder="0" 
+                        value={(() => {
+                           const match = nuevoProducto.gramaje.match(/^([\d.]+)/);
+                           return match ? match[1] : '';
+                        })()} 
+                        onChange={e => {
+                           const val = e.target.value;
+                           const match = nuevoProducto.gramaje.match(/[a-zA-Z]+$/);
+                           const unit = match ? match[0] : 'gr';
+                           setNuevoProducto({...nuevoProducto, gramaje: `${val} ${unit}`});
+                        }} 
+                        style={{ ...inputStyle, flex: 2 }} 
+                      />
+                      <select
+                        value={(() => {
+                           const match = nuevoProducto.gramaje.match(/[a-zA-Z]+$/);
+                           return match ? match[0] : 'gr';
+                        })()}
+                        onChange={e => {
+                           const unit = e.target.value;
+                           const match = nuevoProducto.gramaje.match(/^([\d.]+)/);
+                           const val = match ? match[1] : '0';
+                           setNuevoProducto({...nuevoProducto, gramaje: `${val} ${unit}`});
+                        }}
+                        style={{ ...inputStyle, flex: 1, padding: '12px 5px', minWidth: '70px' }}
+                      >
+                        <option value="gr">gr</option>
+                        <option value="kg">kg</option>
+                        <option value="cc">cc</option>
+                        <option value="ml">ml</option>
+                        <option value="L">L</option>
+                      </select>
+                    </div>
                    </div>
                    <div style={{ flex: 1 }}>
                     <label style={{ color: '#a0a0a0', fontSize: '0.8rem', marginBottom: '5px', display: 'block' }}>Und x Caja</label>
                     <input 
                       type="number" placeholder="0" 
                       value={nuevoProducto.cantidadPorCaja} 
-                      onChange={e => setNuevoProducto({...nuevoProducto, cantidadPorCaja: Number(e.target.value)})} 
+                      onChange={e => setNuevoProducto({...nuevoProducto, cantidadPorCaja: e.target.value})} 
                       style={inputStyle} 
                     />
                    </div>
@@ -734,7 +819,7 @@ function App() {
                     <input 
                       type="number" placeholder="0" 
                       value={nuevoProducto.cantidadPorDisplay} 
-                      onChange={e => setNuevoProducto({...nuevoProducto, cantidadPorDisplay: Number(e.target.value)})} 
+                      onChange={e => setNuevoProducto({...nuevoProducto, cantidadPorDisplay: e.target.value})} 
                       style={inputStyle} 
                     />
                    </div>
@@ -746,7 +831,7 @@ function App() {
                     <input 
                       type="number" step="0.01" placeholder="0.00" 
                       value={nuevoProducto.precioFOB} 
-                      onChange={e => setNuevoProducto({...nuevoProducto, precioFOB: Number(e.target.value)})} 
+                      onChange={e => setNuevoProducto({...nuevoProducto, precioFOB: e.target.value})} 
                       style={inputStyle} 
                       required 
                     />

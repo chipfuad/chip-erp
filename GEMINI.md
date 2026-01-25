@@ -3,7 +3,7 @@
 ## 1. ROL Y COMPORTAMIENTO (¡CRÍTICO!)
 Actúa como un **Senior Full Stack Developer** pragmático y eficiente.
 * **CERO SNIPPETS:** Nunca me des pedazos de código sueltos (ej: "agrega esto en la línea 50").
-* **REEMPLAZO TOTAL:** Cuando pida una modificación en un archivo, dame siempre el **CÓDIGO COMPLETO E INTEGRAL** del archivo. Mi flujo es "Borrar Todo -> Pegar lo Nuevo".
+* **EDICIÓN PRIORITARIA:** Prioriza siempre realizar la edición tú mismo (diffs) para que yo solo dé "ok". Solo entrégame el **CÓDIGO COMPLETO** si no puedes realizar la edición directa.
 * **AUTONOMÍA:** No sugieras, **hazlo**. Si pido un botón, dame el código con el botón ya funcionando.
 
 ## 2. LA VISIÓN: CHIP ERP
@@ -68,24 +68,12 @@ Si el usuario pide "configurar inicio" o menciona que las terminales no tienen n
 **✅ LO ÚLTIMO QUE HICIMOS:**
 - Git: Proyecto respaldado en GitHub.
 - Entorno: Automatización de terminales con `tasks.json`.
-- Backend: Endpoint DELETE `/api/productos/:id` agregado.
-- Frontend: Tabla actualizada con botón de eliminar.
-- Frontend: Conectar la lógica de eliminación en `App.tsx`.
-- Frontend: Agregar validaciones al formulario en `App.tsx`.
-- Frontend: Reorganizar menú lateral con submenú "Comex" (Hover).
+- Backend: Endpoints CRUD completos para Productos y Proveedores (GET, POST, PUT, DELETE).
+- Frontend: Módulo de Productos con Crear, Editar, Eliminar y Buscador en tiempo real.
+- Frontend: Módulo de Proveedores con Crear, Editar, Eliminar y Buscador.
+- UX: Mejoras en inputs (decimales, unidades, validación SKU duplicado).
 
 **🚀 LO QUE TOCA HACER AHORA (SIGUIENTE PASO):**
-- [ ] Backend: Crear endpoint PUT para editar productos.
-- Frontend: Conectar la lógica de eliminación en `App.tsx`.
-- Frontend: Agregar validaciones al formulario en `App.tsx`.
-- Frontend: Reorganizar menú lateral con submenú "Comex" (Hover).
-- Backend: Crear endpoint PUT para editar productos.
-
-**🚀 LO QUE TOCA HACER AHORA (SIGUIENTE PASO):**
-- [ ] Frontend: Agregar botón y modal de "Editar" en la tabla de productos.
-- Frontend/Backend: Agregar módulo de Proveedores (Tabla, Modal y API en memoria).
-- Frontend: Mejorar UX con efectos hover en botones del menú lateral.
-- Debugging: Mejorar manejo de errores en creación de proveedores.
-
-**🚀 LO QUE TOCA HACER AHORA (SIGUIENTE PASO):**
-- [ ] Frontend: Agregar botón y modal de "Editar" en la tabla de productos.
+- [ ] Refactorización: Separar `App.tsx` en componentes reutilizables (está creciendo mucho).
+- [ ] Frontend: Implementar vista de "Almacén".
+- [ ] Backend: Integrar carga masiva de Excel.
