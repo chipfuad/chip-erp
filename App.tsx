@@ -100,6 +100,10 @@ function App() {
   };
 
   useEffect(() => {
+    // Ajuste visual global para evitar scrollbars externos por el escalado
+    document.body.style.overflow = 'hidden';
+    document.body.style.margin = '0';
+    
     fetchProductos();
     fetchProveedores();
   }, []);
@@ -295,7 +299,17 @@ function App() {
 
   // 5. El Diseño Visual
   return (
-    <div style={{ display: 'flex', height: '100vh', backgroundColor: '#1a1a2e', color: 'white', fontFamily: 'Segoe UI, sans-serif' }}>
+    <div style={{ 
+      display: 'flex', 
+      height: '125vh', // Compensación de altura para el zoom (100 / 0.8)
+      width: '125vw',  // Compensación de ancho para el zoom (100 / 0.8)
+      backgroundColor: '#1a1a2e', 
+      color: 'white', 
+      fontFamily: 'Segoe UI, sans-serif',
+      transform: 'scale(0.8)', // Achicamos todo al 80%
+      transformOrigin: 'top left', // Anclamos el escalado a la esquina superior izquierda
+      overflow: 'hidden' // Evitamos scrollbars dobles
+    }}>
       
       {/* SIDEBAR */}
       <aside style={{ 
