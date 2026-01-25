@@ -41,11 +41,12 @@ function App() {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'PRODUCTOS' | 'PROVEEDORES'>('DASHBOARD');
+  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'PRODUCTOS' | 'PROVEEDORES' | 'VENTAS' | 'RESUMEN_VENTAS'>('DASHBOARD');
   const [hoveredTab, setHoveredTab] = useState<string | null>(null);
   
   // Estado para el menú desplegable
   const [showComexMenu, setShowComexMenu] = useState(false);
+  const [showVentasMenu, setShowVentasMenu] = useState(false);
 
   // Estados para el Modal y Formulario
   const [showModal, setShowModal] = useState(false);
@@ -76,6 +77,19 @@ function App() {
   // Estados para Filtros
   const [searchTermProductos, setSearchTermProductos] = useState('');
   const [searchTermProveedores, setSearchTermProveedores] = useState('');
+
+  // Estado para control de fecha en Ventas
+  const [fechaVentas, setFechaVentas] = useState(new Date());
+
+  // Estado para Ventas (Matriz Mensual)
+  const [ventasMensuales, setVentasMensuales] = useState<Record<string, number>>(() => {
+    const saved = localStorage.getItem('chip_erp_ventas');
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  useEffect(() => {
+    localStorage.setItem('chip_erp_ventas', JSON.stringify(ventasMensuales));
+  }, [ventasMensuales]);
 
   // 3. Conexión al Cerebro (Backend)
   const fetchProductos = () => {
@@ -323,12 +337,43 @@ function App() {
     });
   }, [proveedores, searchTermProveedores]);
 
+  // Lógica de Ventas
+  const daysInMonth = useMemo(() => {
+    return new Date(fechaVentas.getFullYear(), fechaVentas.getMonth() + 1, 0).getDate();
+  }, [fechaVentas]);
+  
+  const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+  const getVentaKey = (productId: number, day: number) => {
+    return `${productId}-${day}-${fechaVentas.getMonth()}-${fechaVentas.getFullYear()}`;
+  };
+
+  const cambiarMes = (delta: number) => {
+    setFechaVentas(prev => {
+      const nuevaFecha = new Date(prev);
+      nuevaFecha.setMonth(prev.getMonth() + delta);
+      return nuevaFecha;
+    });
+  };
+
+  const handleVentaChange = (productId: number, day: number, value: string) => {
+    const key = getVentaKey(productId, day);
+    setVentasMensuales(prev => {
+      const newState = { ...prev };
+      if (value === '') delete newState[key];
+      else newState[key] = Number(value);
+      return newState;
+    });
+  };
+
   // Títulos dinámicos según la pestaña activa
   const getHeaderInfo = () => {
     switch (activeTab) {
       case 'DASHBOARD': return { title: 'Resumen Ejecutivo', subtitle: 'Vista general del inventario activo' };
       case 'PRODUCTOS': return { title: 'Productos', subtitle: 'Gestión del catálogo maestro' };
       case 'PROVEEDORES': return { title: 'Directorio de Proveedores', subtitle: 'Base de datos de socios comerciales' };
+      case 'VENTAS': return { title: 'Detalle de Ventas', subtitle: 'Registro diario de unidades vendidas' };
+      case 'RESUMEN_VENTAS': return { title: 'Resumen de Ventas', subtitle: 'Análisis de desempeño comercial' };
       default: return { title: 'Chip ERP', subtitle: 'Sistema de Gestión' };
     }
   };
@@ -452,6 +497,77 @@ function App() {
             transition: 'all 0.2s'
           }}>
             <span>🏭 Almacen</span>
+          </div>
+
+          {/* Menú Desplegable VENTAS */}
+          <div 
+            onMouseEnter={() => setShowVentasMenu(true)}
+            onMouseLeave={() => setShowVentasMenu(false)}
+            style={{ position: 'relative' }}
+          >
+            {/* Botón Principal */}
+            <div style={{ 
+              padding: '15px', 
+              borderRadius: '8px', 
+              cursor: 'pointer', 
+              color: showVentasMenu ? '#4cc9f0' : '#a0a0a0',
+              fontWeight: 'bold',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              background: showVentasMenu ? 'rgba(76, 201, 240, 0.1)' : 'transparent',
+              transition: 'all 0.2s'
+            }}>
+              <span>💰 Ventas</span>
+              <span style={{ fontSize: '0.8rem' }}>▶</span>
+            </div>
+
+            {/* Submenú Flotante */}
+            <div style={{ 
+              position: 'absolute',
+              left: '100%', 
+              top: 0,
+              marginLeft: '10px', 
+              width: '180px',
+              background: '#16213e',
+              border: '1px solid #4cc9f0',
+              borderRadius: '8px',
+              padding: '5px',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+              zIndex: 1000,
+              opacity: showVentasMenu ? 1 : 0,
+              visibility: showVentasMenu ? 'visible' : 'hidden',
+              transform: showVentasMenu ? 'translateX(0)' : 'translateX(-10px)',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+            }}>
+              <button 
+                onClick={() => setActiveTab('VENTAS')}
+                onMouseEnter={() => setHoveredTab('VENTAS')}
+                onMouseLeave={() => setHoveredTab(null)}
+                style={{ 
+                  width: '100%',
+                  padding: '12px', borderRadius: '6px', border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: '0.9rem', transition: 'all 0.2s',
+                  background: activeTab === 'VENTAS' ? 'rgba(76, 201, 240, 0.2)' : (hoveredTab === 'VENTAS' ? 'rgba(76, 201, 240, 0.1)' : 'transparent'),
+                  color: activeTab === 'VENTAS' ? '#4cc9f0' : (hoveredTab === 'VENTAS' ? 'white' : '#a0a0a0'),
+                  fontWeight: activeTab === 'VENTAS' ? 'bold' : 'normal',
+                  marginBottom: '5px'
+                }}>
+                📝 Detalle de ventas
+              </button>
+              <button 
+                onClick={() => setActiveTab('RESUMEN_VENTAS')}
+                onMouseEnter={() => setHoveredTab('RESUMEN_VENTAS')}
+                onMouseLeave={() => setHoveredTab(null)}
+                style={{ 
+                  width: '100%',
+                  padding: '12px', borderRadius: '6px', border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: '0.9rem', transition: 'all 0.2s',
+                  background: activeTab === 'RESUMEN_VENTAS' ? 'rgba(76, 201, 240, 0.2)' : (hoveredTab === 'RESUMEN_VENTAS' ? 'rgba(76, 201, 240, 0.1)' : 'transparent'),
+                  color: activeTab === 'RESUMEN_VENTAS' ? '#4cc9f0' : (hoveredTab === 'RESUMEN_VENTAS' ? 'white' : '#a0a0a0'),
+                  fontWeight: activeTab === 'RESUMEN_VENTAS' ? 'bold' : 'normal',
+                }}>
+                📊 Resumen de ventas
+              </button>
+            </div>
           </div>
 
         </nav>
@@ -695,6 +811,77 @@ function App() {
                 No hay proveedores registrados.
               </div>
             )}
+          </div>
+        )}
+
+        {/* VISTA VENTAS (Sábana Mensual) */}
+        {!loading && !error && activeTab === 'VENTAS' && (
+          <div style={{ background: '#16213e', borderRadius: '15px', padding: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.2)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                <button 
+                  onClick={() => cambiarMes(-1)}
+                  style={{ background: 'transparent', border: '1px solid #4cc9f0', color: '#4cc9f0', borderRadius: '50%', width: '30px', height: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  ◀
+                </button>
+                <h3 style={{ margin: 0, color: '#4cc9f0', minWidth: '200px', textAlign: 'center' }}>
+                  {fechaVentas.toLocaleString('es-ES', { month: 'long', year: 'numeric' }).toUpperCase()}
+                </h3>
+                <button 
+                  onClick={() => cambiarMes(1)}
+                  style={{ background: 'transparent', border: '1px solid #4cc9f0', color: '#4cc9f0', borderRadius: '50%', width: '30px', height: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  ▶
+                </button>
+              </div>
+            </div>
+            
+            <div style={{ overflowX: 'auto', maxHeight: 'calc(100vh - 250px)' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1500px' }}>
+                <thead style={{ position: 'sticky', top: 0, background: '#0f3460', zIndex: 10 }}>
+                  <tr>
+                    <th style={{ padding: '15px', textAlign: 'left', minWidth: '200px', position: 'sticky', left: 0, background: '#0f3460', zIndex: 20, borderRight: '2px solid #1a1a2e' }}>Producto</th>
+                    {daysArray.map(day => (
+                      <th key={day} style={{ padding: '10px', textAlign: 'center', minWidth: '40px', borderLeft: '1px solid #2a2a40', color: '#a0a0a0', fontSize: '0.8rem' }}>{day}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {productos.map((prod, i) => (
+                    <tr key={prod.id} style={{ borderBottom: '1px solid #2a2a40', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)' }}>
+                      <td style={{ padding: '10px', position: 'sticky', left: 0, background: i % 2 === 0 ? '#16213e' : '#1a1a2e', zIndex: 10, borderRight: '2px solid #2a2a40' }}>
+                        <div style={{ fontWeight: 'bold', color: 'white' }}>{prod.sku}</div>
+                        <div style={{ fontSize: '0.8rem', color: '#a0a0a0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }}>{prod.nombre}</div>
+                      </td>
+                      {daysArray.map(day => {
+                        const key = prod.id ? getVentaKey(prod.id, day) : '';
+                        const val = ventasMensuales[key] || '';
+                        return (
+                          <td key={day} style={{ padding: '0', borderLeft: '1px solid #2a2a40' }}>
+                            <input 
+                              type="number" 
+                              value={val}
+                              onChange={(e) => prod.id && handleVentaChange(prod.id, day, e.target.value)}
+                              style={{ width: '100%', height: '100%', background: 'transparent', border: 'none', color: val ? '#4cc9f0' : '#444', textAlign: 'center', fontSize: '0.9rem', outline: 'none', padding: '10px 0', fontWeight: val ? 'bold' : 'normal' }}
+                              placeholder="-"
+                            />
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* VISTA RESUMEN VENTAS */}
+        {!loading && !error && activeTab === 'RESUMEN_VENTAS' && (
+          <div style={{ background: '#16213e', borderRadius: '15px', padding: '40px', textAlign: 'center', color: '#a0a0a0' }}>
+            <h2 style={{ color: '#4cc9f0' }}>📊 Resumen de Ventas</h2>
+            <p>Próximamente: Gráficos y análisis de ventas.</p>
           </div>
         )}
 
