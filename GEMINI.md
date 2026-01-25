@@ -22,7 +22,7 @@ El sistema es **Full Stack** corriendo en dos terminales separadas:
 
 ### 🧠 Backend (Puerto 3000)
 * **Runtime:** Node.js + Express + TypeScript (`.ts`).
-* **Base de Datos:** SQLite (archivo local).
+* **Base de Datos:** PostgreSQL.
 * **ORM:** Prisma.
 * **Archivo Principal:** `server.ts`.
 * **Comunicación:** API REST (Rutas `/api/...`). CORS habilitado.
@@ -39,12 +39,15 @@ El sistema es **Full Stack** corriendo en dos terminales separadas:
 ## 5. MODELO DE DATOS (TABLA: PRODUCTO)
 Respeta estrictamente estos campos y tipos al generar código:
 * `id`: Int (Autoincremental)
-* `sku`: String (Único)
-* `nombre`: String
-* `precioFOB`: Decimal/Float (¡Ojo! Convertir siempre con `Number()` al recibir del frontend)
-* `gramaje`: String
-* `paisOrigen`: String
-* `cantidadPorCaja`: Int
+* `sku`: String (Único) - CODIGO
+* `proveedorId`: Int - PROVEEDOR
+* `paisOrigen`: String - Origen
+* `nombre`: String - ARTICULO
+* `gramaje`: String - PESO/VOL
+* `cantidadPorCaja`: Int - Und x Caja
+* `cantidadPorDisplay`: Int - Unid x Display
+* `precioFOB`: Decimal/Float - Valor FOB
+* `moneda`: String - Moneda
 
 ## 6. INSTRUCCIONES DE RESPUESTA
 1.  **Frontend (`App.tsx`):** Mantén siempre los imports de `chart.js`, los estilos oscuros y la estructura completa.
@@ -67,7 +70,22 @@ Si el usuario pide "configurar inicio" o menciona que las terminales no tienen n
 - Entorno: Automatización de terminales con `tasks.json`.
 - Backend: Endpoint DELETE `/api/productos/:id` agregado.
 - Frontend: Tabla actualizada con botón de eliminar.
+- Frontend: Conectar la lógica de eliminación en `App.tsx`.
+- Frontend: Agregar validaciones al formulario en `App.tsx`.
+- Frontend: Reorganizar menú lateral con submenú "Comex" (Hover).
 
 **🚀 LO QUE TOCA HACER AHORA (SIGUIENTE PASO):**
-- [x] Frontend: Conectar la lógica de eliminación en `App.tsx`.
-- [ ] Frontend: Agregar validaciones al formulario en `App.tsx`.
+- [ ] Backend: Crear endpoint PUT para editar productos.
+- Frontend: Conectar la lógica de eliminación en `App.tsx`.
+- Frontend: Agregar validaciones al formulario en `App.tsx`.
+- Frontend: Reorganizar menú lateral con submenú "Comex" (Hover).
+- Backend: Crear endpoint PUT para editar productos.
+
+**🚀 LO QUE TOCA HACER AHORA (SIGUIENTE PASO):**
+- [ ] Frontend: Agregar botón y modal de "Editar" en la tabla de productos.
+- Frontend/Backend: Agregar módulo de Proveedores (Tabla, Modal y API en memoria).
+- Frontend: Mejorar UX con efectos hover en botones del menú lateral.
+- Debugging: Mejorar manejo de errores en creación de proveedores.
+
+**🚀 LO QUE TOCA HACER AHORA (SIGUIENTE PASO):**
+- [ ] Frontend: Agregar botón y modal de "Editar" en la tabla de productos.

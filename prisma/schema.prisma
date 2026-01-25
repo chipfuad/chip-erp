@@ -1,3 +1,5 @@
+// prisma/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,34 +9,26 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// --- PROVEEDOR (El "Padre" del producto) ---
-model Proveedor {
-  id        Int        @id @default(autoincrement())
-  nombre    String     @unique // Nombre de la empresa
-  pais      String?    // Origen (China, India, USA...)
-  direccion String?    // Dirección física
-  ejecutivo String?    // Nombre del contacto (Ej: Mr. Wang)
-  email     String?    // Correo de contacto
-  telefono  String?    // WhatsApp / WeChat
+model Producto {
+  id                 Int     @id @default(autoincrement())
+  sku                String  @unique
+  nombre             String
+  precioFOB          Decimal
+  gramaje            String
+  paisOrigen         String
+  cantidadPorCaja    Int
   
-  // Relación: Un proveedor tiene muchos productos
-  productos Producto[]
+  // Campos nuevos
+  cantidadPorDisplay Int     @default(0)
+  moneda             String  @default("USD")
+  proveedorId        Int     @default(0)
 }
 
-// --- PRODUCTO (El ítem que compras) ---
-model Producto {
-  id                 Int      @id @default(autoincrement())
-  sku                String   @unique
-  nombre             String
-  
-  // Detalle técnico y logístico
-  gramaje            String?  
-  cantidadPorCaja    Int?     
-  cantidadPorDisplay Int?     
-  precioFOB          Float?   
-  paisOrigen         String?  // Puede ser distinto al del proveedor (trading)
-  
-  // Relación obligatoria o opcional con Proveedor
-  proveedorId        Int?
-  proveedor          Proveedor? @relation(fields: [proveedorId], references: [id])
+model Proveedor {
+  id        Int     @id @default(autoincrement())
+  nombre    String
+  pais      String
+  ejecutivo String
+  email     String
+  telefono  String
 }
