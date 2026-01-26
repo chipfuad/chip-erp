@@ -1,14 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
 import { Bar, Doughnut } from 'react-chartjs-2';
-
-// IMPORTACIONES DE TUS COMPONENTES (Con la ruta correcta src/...)
 import { ProveedoresTab } from "./src/components/ProveedoresTab";
 import { ProductosTab } from "./src/components/ProductosTab";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
 
-// Interfaz mínima para el Dashboard
 interface ProductoDashboard {
   id?: number; 
   paisOrigen: string;
@@ -16,25 +13,20 @@ interface ProductoDashboard {
 }
 
 function App() {
-  // ESTADO SOLO PARA EL DASHBOARD (Los productos completos viven en su propia pestaña ahora)
   const [productosData, setProductosData] = useState<ProductoDashboard[]>([]);
   const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'PRODUCTOS' | 'PROVEEDORES'>('DASHBOARD');
-  const [hoveredTab, setHoveredTab] = useState<string | null>(null);
   const [showComexMenu, setShowComexMenu] = useState(false);
 
-  // Cargar datos ligeros para los gráficos
   useEffect(() => {
     fetch('http://localhost:3000/api/productos')
       .then(res => res.json())
       .then(data => setProductosData(data))
       .catch(err => console.error("Error cargando datos dashboard", err));
     
-    // Estilos globales
     document.body.style.overflow = 'hidden';
     document.body.style.margin = '0';
-  }, [activeTab]); // Recargar al cambiar de pestaña para actualizar gráficos
+  }, [activeTab]);
 
-  // --- LÓGICA DE GRÁFICOS (KPIs) ---
   const kpiTotalProductos = productosData.length;
   const kpiPrecioPromedio = productosData.length > 0 
     ? (productosData.reduce((acc, p) => acc + Number(p.precioFOB), 0) / productosData.length).toFixed(2) 
@@ -72,7 +64,6 @@ function App() {
   return (
     <div style={{ display: 'flex', height: '125vh', width: '125vw', backgroundColor: '#1a1a2e', color: 'white', fontFamily: 'Segoe UI, sans-serif', transform: 'scale(0.8)', transformOrigin: 'top left', overflow: 'hidden' }}>
       
-      {/* SIDEBAR */}
       <aside style={{ width: '240px', backgroundColor: '#16213e', padding: '20px', display: 'flex', flexDirection: 'column', borderRight: '1px solid #0f3460', zIndex: 100 }}>
         <h2 style={{ color: '#4cc9f0', textAlign: 'center', marginBottom: '40px', letterSpacing: '2px', borderBottom: '2px solid #4cc9f0', paddingBottom: '10px' }}>CHIP ERP</h2>
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
@@ -80,7 +71,6 @@ function App() {
             <div style={{ padding: '15px', borderRadius: '8px', cursor: 'pointer', color: showComexMenu ? '#4cc9f0' : '#a0a0a0', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: showComexMenu ? 'rgba(76, 201, 240, 0.1)' : 'transparent', transition: 'all 0.2s' }}>
               <span>🚢 Comex</span><span style={{ fontSize: '0.8rem' }}>▶</span>
             </div>
-            {/* Submenú */}
             <div style={{ position: 'absolute', left: '100%', top: 0, marginLeft: '10px', width: '180px', background: '#16213e', border: '1px solid #4cc9f0', borderRadius: '8px', padding: '5px', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', zIndex: 1000, opacity: showComexMenu ? 1 : 0, visibility: showComexMenu ? 'visible' : 'hidden', transform: showComexMenu ? 'translateX(0)' : 'translateX(-10px)', transition: 'all 0.3s' }}>
               <button onClick={() => setActiveTab('DASHBOARD')} style={{ width: '100%', padding: '12px', borderRadius: '6px', border: 'none', cursor: 'pointer', textAlign: 'left', background: activeTab === 'DASHBOARD' ? 'rgba(76, 201, 240, 0.2)' : 'transparent', color: activeTab === 'DASHBOARD' ? '#4cc9f0' : '#a0a0a0', marginBottom: '5px' }}>📊 Dashboard</button>
               <button onClick={() => setActiveTab('PRODUCTOS')} style={{ width: '100%', padding: '12px', borderRadius: '6px', border: 'none', cursor: 'pointer', textAlign: 'left', background: activeTab === 'PRODUCTOS' ? 'rgba(76, 201, 240, 0.2)' : 'transparent', color: activeTab === 'PRODUCTOS' ? '#4cc9f0' : '#a0a0a0', marginBottom: '5px' }}>📦 Productos</button>
@@ -90,14 +80,12 @@ function App() {
         </nav>
       </aside>
 
-      {/* ZONA PRINCIPAL */}
       <main style={{ flex: 1, padding: '30px', overflowY: 'auto' }}>
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
           <div><h1 style={{ margin: 0, fontSize: '2rem' }}>{title}</h1><p style={{ color: '#a0a0a0', margin: '5px 0 0 0' }}>{subtitle}</p></div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '15px', background: '#16213e', padding: '10px 20px', borderRadius: '50px' }}><span style={{ fontSize: '1.2rem' }}>👤</span><span style={{ fontWeight: 'bold' }}>Admin</span></div>
         </header>
 
-        {/* --- VISTA DASHBOARD --- */}
         {activeTab === 'DASHBOARD' && (
           <div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginBottom: '30px' }}>
@@ -112,7 +100,6 @@ function App() {
           </div>
         )}
 
-        {/* --- VISTAS MODULARES --- */}
         {activeTab === 'PRODUCTOS' && <ProductosTab />}
         {activeTab === 'PROVEEDORES' && <ProveedoresTab />}
 
