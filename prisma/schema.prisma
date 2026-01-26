@@ -10,8 +10,8 @@ datasource db {
 }
 
 model Producto {
-  id                 Int     @id @default(autoincrement())
-  sku                String  @unique
+  id                 Int       @id @default(autoincrement())
+  sku                String    @unique
   nombre             String
   precioFOB          Decimal
   gramaje            String
@@ -19,16 +19,27 @@ model Producto {
   cantidadPorCaja    Int
   
   // Campos nuevos
-  cantidadPorDisplay Int     @default(0)
-  moneda             String  @default("USD")
-  proveedorId        Int     @default(0)
+  cantidadPorDisplay Int       @default(0)
+  moneda             String    @default("USD")
+  
+  // --- AQUÍ ESTABA EL FALTANTE ---
+  proveedorId        Int       @default(0)
+  proveedor          Proveedor @relation(fields: [proveedorId], references: [id]) // <--- ESTA LÍNEA FALTABA
 }
 
 model Proveedor {
-  id        Int     @id @default(autoincrement())
+  id        Int      @id @default(autoincrement())
   nombre    String
   pais      String
-  ejecutivo String
-  email     String
-  telefono  String
+  ejecutivo String?
+  email     String?
+  telefono  String?
+  
+  // --- CAMPOS NUEVOS ---
+  direccion String?  // <--- NUEVO (El ? significa que es opcional)
+  ciudad    String?  // <--- NUEVO
+  website   String?  // <--- NUEVO
+  notas     String?  // <--- NUEVO
+  
+  productos Producto[]
 }

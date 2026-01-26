@@ -22,7 +22,7 @@ app.get('/', (req, res) => {
 app.get('/api/productos', async (req, res) => {
   try {
     const productos = await prisma.producto.findMany({
-      orderBy: { id: 'desc' } // Muestra los más nuevos primero
+      orderBy: { id: 'desc' }
     });
     res.json(productos);
   } catch (error) {
@@ -97,7 +97,7 @@ app.delete('/api/productos/:id', async (req, res) => {
   }
 });
 
-// --- PROVEEDORES (AHORA EN BASE DE DATOS REAL) ---
+// --- PROVEEDORES (ACTUALIZADO CON NUEVOS CAMPOS) ---
 
 // Obtener proveedores
 app.get('/api/proveedores', async (req, res) => {
@@ -115,14 +115,21 @@ app.get('/api/proveedores', async (req, res) => {
 // Crear proveedor
 app.post('/api/proveedores', async (req, res) => {
   try {
-    const { nombre, pais, ejecutivo, email, telefono } = req.body;
+    // AQUÍ AGREGAMOS LOS NUEVOS CAMPOS
+    const { nombre, pais, ejecutivo, email, telefono, direccion, ciudad, website, notas } = req.body;
+    
     const nuevoProveedor = await prisma.proveedor.create({
       data: {
         nombre,
         pais,
         ejecutivo: ejecutivo || '',
         email: email || '',
-        telefono: telefono || ''
+        telefono: telefono || '',
+        // Campos nuevos
+        direccion: direccion || '',
+        ciudad: ciudad || '',
+        website: website || '',
+        notas: notas || ''
       }
     });
     res.json(nuevoProveedor);
@@ -136,7 +143,9 @@ app.post('/api/proveedores', async (req, res) => {
 app.put('/api/proveedores/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, pais, ejecutivo, email, telefono } = req.body;
+    // AQUÍ AGREGAMOS LOS NUEVOS CAMPOS PARA QUE SE GUARDEN AL EDITAR
+    const { nombre, pais, ejecutivo, email, telefono, direccion, ciudad, website, notas } = req.body;
+    
     const proveedorActualizado = await prisma.proveedor.update({
       where: { id: Number(id) },
       data: {
@@ -144,7 +153,12 @@ app.put('/api/proveedores/:id', async (req, res) => {
         pais,
         ejecutivo: ejecutivo || '',
         email: email || '',
-        telefono: telefono || ''
+        telefono: telefono || '',
+        // Campos nuevos
+        direccion: direccion || '',
+        ciudad: ciudad || '',
+        website: website || '',
+        notas: notas || ''
       }
     });
     res.json(proveedorActualizado);
