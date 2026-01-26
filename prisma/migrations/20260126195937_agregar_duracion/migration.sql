@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE "Producto" ADD COLUMN     "duracion" TEXT,
+ALTER COLUMN "proveedorId" DROP DEFAULT,
+ALTER COLUMN "cantidadPorCaja" SET DEFAULT 0,
+ALTER COLUMN "gramaje" DROP NOT NULL,
+ALTER COLUMN "paisOrigen" DROP NOT NULL;

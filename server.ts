@@ -31,55 +31,59 @@ app.get('/api/productos', async (req, res) => {
   }
 });
 
-// Crear producto
+// CREAR PRODUCTO
 app.post('/api/productos', async (req, res) => {
   try {
-    const { sku, nombre, precioFOB, gramaje, paisOrigen, cantidadPorCaja, cantidadPorDisplay, moneda, proveedorId } = req.body;
+    // Agregamos 'duracion' a la lista de cosas que recibimos
+    const { sku, nombre, precioFOB, gramaje, paisOrigen, cantidadPorCaja, cantidadPorDisplay, moneda, proveedorId, duracion } = req.body;
     
-    const nuevoProducto = await prisma.producto.create({
+    const nuevo = await prisma.producto.create({
       data: {
         sku,
         nombre,
-        precioFOB: Number(precioFOB),
+        precioFOB,
         gramaje,
         paisOrigen,
         cantidadPorCaja: Number(cantidadPorCaja),
-        cantidadPorDisplay: Number(cantidadPorDisplay) || 0,
-        moneda: moneda || 'USD',
-        proveedorId: Number(proveedorId) || 0
-      },
+        cantidadPorDisplay: Number(cantidadPorDisplay),
+        moneda,
+        duracion, // <--- ¡AQUÍ SE GUARDA!
+        proveedorId: Number(proveedorId)
+      }
     });
-    res.json(nuevoProducto);
+    res.json(nuevo);
   } catch (error) {
-    console.error("Error al crear producto:", error);
-    res.status(500).json({ error: 'Error al crear producto' });
+    console.error(error);
+    res.status(500).json({ error: 'Error creando producto' });
   }
 });
 
-// Editar producto
+// EDITAR PRODUCTO
 app.put('/api/productos/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { sku, nombre, precioFOB, gramaje, paisOrigen, cantidadPorCaja, cantidadPorDisplay, moneda, proveedorId } = req.body;
-    
-    const productoActualizado = await prisma.producto.update({
+    // Aquí también agregamos 'duracion'
+    const { sku, nombre, precioFOB, gramaje, paisOrigen, cantidadPorCaja, cantidadPorDisplay, moneda, proveedorId, duracion } = req.body;
+
+    const actualizado = await prisma.producto.update({
       where: { id: Number(id) },
       data: {
         sku,
         nombre,
-        precioFOB: Number(precioFOB),
+        precioFOB,
         gramaje,
         paisOrigen,
         cantidadPorCaja: Number(cantidadPorCaja),
-        cantidadPorDisplay: Number(cantidadPorDisplay) || 0,
-        moneda: moneda || 'USD',
-        proveedorId: Number(proveedorId) || 0
-      },
+        cantidadPorDisplay: Number(cantidadPorDisplay),
+        moneda,
+        duracion, // <--- ¡AQUÍ SE ACTUALIZA!
+        proveedorId: Number(proveedorId)
+      }
     });
-    res.json(productoActualizado);
+    res.json(actualizado);
   } catch (error) {
-    console.error("Error al actualizar:", error);
-    res.status(500).json({ error: 'Error al actualizar producto' });
+    console.error(error);
+    res.status(500).json({ error: 'Error actualizando producto' });
   }
 });
 
