@@ -22,11 +22,15 @@ model Producto {
   moneda             String    @default("USD")
   duracion           String?
   
-  // --- NUEVO PARA CALCULADORA DE COMPRAS ---
-  ventaMensual       Int       @default(0) // Ventas promedio por mes
+  // --- DATOS PARA CALCULADORA DE COMPRAS (MRP) ---
+  ventaMensual       Int       @default(0) // Promedio calculado
+  stockActual        Int       @default(0) // Inventario físico actual
 
   proveedorId        Int
   proveedor          Proveedor @relation(fields: [proveedorId], references: [id])
+  
+  // --- RELACIÓN CON HISTORIAL ---
+  ventasHistoricas   VentaHistorica[]
 }
 
 model Proveedor {
@@ -42,8 +46,18 @@ model Proveedor {
   website   String?
   notas     String?
   
-  // --- NUEVO PARA CALCULADORA DE COMPRAS ---
-  leadTime  Int     @default(0) // Tiempo en días (ej: 120) que tarda en llegar la carga
+  // --- DATOS LOGÍSTICOS ---
+  leadTime  Int     @default(0) // Tiempo en días
 
   productos Producto[]
+}
+
+// --- NUEVO MODELO: HISTORIAL DE VENTAS ---
+model VentaHistorica {
+  id          Int      @id @default(autoincrement())
+  fecha       DateTime
+  cantidad    Int      
+  
+  productoId  Int
+  producto    Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
 }

@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ShoppingCart, RefreshCw, AlertTriangle, CheckCircle, Truck } from 'lucide-react';
+import { Calculator, ArrowLeft, Folder, AlertTriangle, CheckCircle, TrendingUp, Package, Clock } from 'lucide-react';
 
+// --- INTERFACES ---
 interface Proveedor {
   id: number;
   nombre: string;
-  leadTime: number; // Días que tarda en llegar
+  leadTime: number; // Tiempo de reposición en días
 }
 
 interface Producto {
@@ -12,226 +13,223 @@ interface Producto {
   sku: string;
   nombre: string;
   stockActual: number;
-  ventaMensual: number;
+  ventaMensual: number; // Promedio histórico
   proveedorId: number;
-  proveedor?: Proveedor; // Para acceder al leadTime
+  cantidadPorCaja: number;
+  proveedor?: Proveedor; // Para leer el leadTime
 }
 
 export function SimuladorTab() {
   const [productos, setProductos] = useState<Producto[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [proveedores, setProveedores] = useState<Proveedor[]>([]);
+  const [loading, setLoading] = useState(false);
+  
+  // Estado de navegación
+  const [proveedorSeleccionado, setProveedorSeleccionado] = useState<Proveedor | null>(null);
 
-  // Cargar datos frescos
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('http://localhost:3000/api/productos');
-      const data = await res.json();
-      setProductos(data);
-    } catch (error) {
-      console.error("Error cargando datos para simulación", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // --- CARGA DE DATOS ---
   useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [resProd, resProv] = await Promise.all([
+          fetch('http://localhost:3000/api/productos'),
+          fetch('http://localhost:3000/api/proveedores')
+        ]);
+        if (resProd.ok) setProductos(await resProd.json());
+        if (resProv.ok) setProveedores(await resProv.json());
+      } catch (error) {
+        console.error("Error cargando datos", error);
+      } finally {
+        setLoading(false);
+      }
+    };
     fetchData();
   }, []);
 
-  // --- EL CEREBRO (LÓGICA MRP) ---
-  const calculos = useMemo(() => {
-    return productos.map(prod => {
-      const leadTime = prod.proveedor?.leadTime || 0;
-      // Venta Diaria = Venta Mensual / 30
-      const ventaDiaria = prod.ventaMensual / 30;
-      
-      // Stock Necesario = (Lo que vendo al día * Los días que tarda en llegar el barco)
-      const stockNecesario = Math.ceil(ventaDiaria * leadTime);
-      
-      // Sugerencia = Lo que necesito - Lo que tengo. (Si da negativo, es 0)
-      const sugerenciaCompra = Math.max(0, stockNecesario - prod.stockActual);
-      
-      // Estados de Alerta
-      let estado: 'CRITICO' | 'ADVERTENCIA' | 'OK' = 'OK';
-      if (prod.stockActual <= 0) estado = 'CRITICO'; // Quiebre de stock
-      else if (prod.stockActual < stockNecesario) estado = 'ADVERTENCIA'; // No alcanzo a reponer
-
-      return {
-        ...prod,
-        leadTime,
-        ventaDiaria,
-        stockNecesario,
-        sugerenciaCompra,
-        estado
-      };
-    }).sort((a, b) => b.sugerenciaCompra - a.sugerenciaCompra); // Ordenar: Más urgente primero
+  // --- HELPERS ---
+  const conteoPorProveedor = useMemo(() => {
+    const cuenta: Record<number, number> = {};
+    productos.forEach(p => { cuenta[p.proveedorId] = (cuenta[p.proveedorId] || 0) + 1; });
+    return cuenta;
   }, [productos]);
 
-  // Totales para el resumen
-  const totalAComprar = calculos.reduce((acc, item) => acc + item.sugerenciaCompra, 0);
-  const itemsCriticos = calculos.filter(i => i.estado === 'CRITICO' || i.sugerenciaCompra > 0).length;
+  // Filtrar productos del proveedor activo
+  const productosFiltrados = useMemo(() => {
+    if (!proveedorSeleccionado) return [];
+    return productos.filter(p => p.proveedorId === proveedorSeleccionado.id);
+  }, [productos, proveedorSeleccionado]);
+
+  // --- LÓGICA MRP (CÁLCULOS) ---
+  const calcularSugerencia = (prod: Producto, leadTime: number) => {
+    // 1. Venta Diaria
+    const ventaDiaria = prod.ventaMensual / 30;
+    
+    // 2. Consumo durante el Lead Time (¿Cuánto voy a vender mientras llega el barco?)
+    const consumoEnEspera = ventaDiaria * leadTime;
+    
+    // 3. Stock de Seguridad (Opcional: Por ahora usaremos el consumo como base)
+    //    Si quieres ser más conservador, multiplicas esto por 1.2 o 1.5
+    const stockNecesario = consumoEnEspera;
+
+    // 4. ¿Cuánto pedir?
+    let sugerencia = stockNecesario - prod.stockActual;
+    
+    // Si la sugerencia es negativa (tengo de sobra), es 0
+    if (sugerencia < 0) sugerencia = 0;
+
+    // 5. Redondear a Cajas (Opcional pero útil)
+    // Si vendes por cajas, aquí podríamos dividir por prod.cantidadPorCaja y redondear hacia arriba
+    
+    return Math.ceil(sugerencia);
+  };
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <div className="animate-fade-in pb-10">
       
-      {/* 1. HEADER CON RESUMEN (DASHBOARD) */}
-      <div className="flex flex-wrap justify-between items-end gap-4">
+      {/* HEADER */}
+      <div className="flex items-center gap-4 mb-8">
+        {proveedorSeleccionado && (
+            <button 
+                onClick={() => setProveedorSeleccionado(null)} 
+                className="bg-slate-700 hover:bg-slate-600 text-white p-2.5 rounded-full transition-colors"
+            >
+                <ArrowLeft size={20} />
+            </button>
+        )}
         <div>
-            <h2 className="text-3xl font-bold text-white m-0">Planificador de Compras (MRP)</h2>
+            <h2 className="text-3xl font-bold text-white m-0 flex items-center gap-3">
+                <Calculator className="text-emerald-400" />
+                {proveedorSeleccionado ? `Planificación: ${proveedorSeleccionado.nombre}` : 'Planificador de Compras (MRP)'}
+            </h2>
             <p className="text-slate-400 mt-1">
-                El sistema calcula cuándo pedir basándose en tu <strong>Venta Mensual</strong> y el <strong>Lead Time</strong> del proveedor.
+                {proveedorSeleccionado 
+                    ? `Lead Time configurado: ${proveedorSeleccionado.leadTime} días`
+                    : 'Selecciona un proveedor para calcular sus necesidades de reposición.'}
             </p>
         </div>
-        <div className="flex gap-4">
-             {/* Tarjeta de Alertas */}
-             <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 flex items-center gap-4 shadow-lg">
-                <div className={`p-3 rounded-lg ${itemsCriticos > 0 ? 'bg-red-500/20 text-red-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
-                    {itemsCriticos > 0 ? <AlertTriangle size={24} /> : <CheckCircle size={24} />}
+      </div>
+
+      {/* VISTA 1: LISTA DE CARPETAS (PROVEEDORES) */}
+      {!proveedorSeleccionado && (
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-6">
+            {proveedores.map(prov => (
+                <div 
+                  key={prov.id} 
+                  onClick={() => setProveedorSeleccionado(prov)} 
+                  className="bg-slate-800 rounded-2xl p-6 flex flex-col items-center justify-center border border-slate-700 cursor-pointer hover:-translate-y-1 hover:border-emerald-400 group text-center gap-2 transition-all shadow-lg"
+                >
+                    <Folder size={50} className="text-emerald-400 fill-emerald-400/20 group-hover:scale-110 transition-transform" />
+                    <h3 className="mt-2 text-xl font-semibold text-white">{prov.nombre}</h3>
+                    <div className="flex gap-2 text-xs mt-1">
+                        <span className="bg-slate-900 px-2 py-1 rounded text-slate-400 border border-slate-700">
+                             {conteoPorProveedor[prov.id] || 0} Items
+                        </span>
+                        <span className="bg-slate-900 px-2 py-1 rounded text-emerald-400 border border-slate-700 flex items-center gap-1">
+                             <Clock size={10}/> {prov.leadTime} días
+                        </span>
+                    </div>
                 </div>
-                <div>
-                    <div className="text-xs text-slate-500 uppercase font-bold">Items a Pedir</div>
-                    <div className="text-2xl font-bold text-white">{itemsCriticos}</div>
-                </div>
-             </div>
-             
-             {/* Tarjeta de Volumen */}
-             <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 flex items-center gap-4 shadow-lg">
-                <div className="p-3 bg-cyan-500/20 text-cyan-400 rounded-lg">
-                    <ShoppingCart size={24} />
-                </div>
-                <div>
-                    <div className="text-xs text-slate-500 uppercase font-bold">Volumen Total</div>
-                    <div className="text-2xl font-bold text-white">{totalAComprar} <span className="text-sm font-normal text-slate-500">un.</span></div>
-                </div>
-             </div>
-             
-             {/* Botón Recalcular */}
-             <button 
-                onClick={fetchData} 
-                className="bg-slate-800 hover:bg-slate-700 text-slate-300 p-4 rounded-xl border border-slate-700 transition-colors h-full flex items-center justify-center hover:text-cyan-400 hover:border-cyan-500/30"
-                title="Actualizar Datos"
-             >
-                <RefreshCw size={24} />
-             </button>
+            ))}
         </div>
-      </div>
+      )}
 
-      {/* 2. TABLA INTELIGENTE */}
-      <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-xl">
-        <table className="w-full text-left border-collapse">
-            <thead className="bg-slate-900 text-slate-400 uppercase text-xs tracking-wider">
-                <tr>
-                    <th className="p-5 font-bold border-b border-slate-700">Producto</th>
-                    <th className="p-5 font-bold border-b border-slate-700 text-center">Datos Clave</th>
-                    <th className="p-5 font-bold border-b border-slate-700 text-center">Análisis de Cobertura</th>
-                    <th className="p-5 font-bold border-b border-slate-700 text-right bg-slate-900/50">Sugerencia</th>
-                </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-700">
-                {loading ? (
-                   <tr><td colSpan={4} className="p-10 text-center text-slate-500 animate-pulse">Analizando inventario y ventas...</td></tr> 
-                ) : calculos.length === 0 ? (
-                   <tr><td colSpan={4} className="p-10 text-center text-slate-500">No hay productos registrados para analizar.</td></tr> 
-                ) : (
-                    calculos.map(item => (
-                        <tr key={item.id} className={`group transition-colors ${item.sugerenciaCompra > 0 ? 'hover:bg-red-500/5' : 'hover:bg-emerald-500/5'}`}>
-                            
-                            {/* COLUMNA 1: PRODUCTO */}
-                            <td className="p-5">
-                                <div className="flex items-center gap-3">
-                                    {/* Indicador visual de estado */}
-                                    <div className={`w-1.5 h-12 rounded-full ${item.sugerenciaCompra > 0 ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]' : 'bg-emerald-500/50'}`}></div>
-                                    <div>
-                                        <div className="font-bold text-white text-lg">{item.nombre}</div>
-                                        <div className="text-cyan-400 text-xs font-bold bg-cyan-500/10 px-2 py-0.5 rounded w-fit mt-1 border border-cyan-500/20">{item.sku}</div>
-                                        <div className="text-slate-500 text-xs mt-1.5 flex items-center gap-1">
-                                            <Truck size={10}/> {item.proveedor?.nombre || 'Sin Proveedor Asignado'}
-                                        </div>
-                                    </div>
-                                </div>
-                            </td>
-
-                            {/* COLUMNA 2: VARIABLES */}
-                            <td className="p-5">
-                                <div className="flex justify-center gap-6 text-sm">
-                                    <div className="text-center">
-                                        <div className="text-slate-500 text-[10px] uppercase tracking-wider mb-1">Stock Hoy</div>
-                                        <div className={`font-bold text-lg ${item.stockActual === 0 ? 'text-red-500' : 'text-white'}`}>
-                                            {item.stockActual}
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="w-px bg-slate-700 h-10 self-center"></div>
-                                    
-                                    <div className="text-center">
-                                        <div className="text-slate-500 text-[10px] uppercase tracking-wider mb-1">Venta/Mes</div>
-                                        <div className="font-bold text-lg text-cyan-400">{item.ventaMensual}</div>
-                                    </div>
-                                    
-                                    <div className="w-px bg-slate-700 h-10 self-center"></div>
-                                    
-                                    <div className="text-center">
-                                        <div className="text-slate-500 text-[10px] uppercase tracking-wider mb-1">Lead Time</div>
-                                        <div className="font-bold text-lg text-amber-400">{item.leadTime} <span className="text-xs text-slate-500 font-normal">días</span></div>
-                                    </div>
-                                </div>
-                            </td>
-
-                            {/* COLUMNA 3: ANÁLISIS */}
-                            <td className="p-5 bg-slate-800/50">
-                                <div className="space-y-2 text-sm max-w-[250px] mx-auto">
-                                    <div className="flex justify-between text-xs">
-                                        <span className="text-slate-400">Stock Mínimo Necesario:</span>
-                                        <span className="text-white font-bold">{item.stockNecesario} un.</span>
-                                    </div>
-                                    
-                                    {/* Barra de Progreso */}
-                                    <div className="w-full bg-slate-700 h-2 rounded-full overflow-hidden">
-                                        <div 
-                                            className={`h-full transition-all duration-500 ${item.stockActual >= item.stockNecesario ? 'bg-emerald-500' : 'bg-red-500'}`}
-                                            style={{ width: `${Math.min(100, (item.stockActual / (item.stockNecesario || 1)) * 100)}%` }}
-                                        ></div>
-                                    </div>
-                                    
-                                    <div className="text-[11px] text-center">
-                                        {item.stockActual >= item.stockNecesario 
-                                            ? <span className="text-emerald-400 flex items-center justify-center gap-1"><CheckCircle size={10}/> Cobertura OK</span> 
-                                            : <span className="text-red-400 flex items-center justify-center gap-1">⚠️ Faltan {(item.stockNecesario - item.stockActual)} para cubrir la espera</span>
-                                        }
-                                    </div>
-                                </div>
-                            </td>
-
-                            {/* COLUMNA 4: SUGERENCIA */}
-                            <td className={`p-5 text-right font-mono border-l border-slate-700 ${item.sugerenciaCompra > 0 ? 'bg-red-500/10' : ''}`}>
-                                {item.sugerenciaCompra > 0 ? (
-                                    <div className="animate-in slide-in-from-right-2">
-                                        <div className="text-[10px] text-red-300 font-bold uppercase mb-1 flex items-center justify-end gap-1">
-                                            PEDIDO SUGERIDO <ShoppingCart size={12}/>
-                                        </div>
-                                        <div className="text-3xl font-bold text-red-400 tracking-tighter">
-                                            +{item.sugerenciaCompra}
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="opacity-40">
-                                        <div className="text-[10px] text-emerald-400 font-bold uppercase mb-1 flex items-center justify-end gap-1">
-                                            NO PEDIR <CheckCircle size={12}/>
-                                        </div>
-                                        <div className="text-2xl font-bold text-emerald-500 tracking-tighter">
-                                            0
-                                        </div>
-                                    </div>
-                                )}
-                            </td>
-
+      {/* VISTA 2: TABLA DE CÁLCULO (MRP) */}
+      {proveedorSeleccionado && (
+        <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm text-slate-400">
+                    <thead className="bg-slate-900 text-slate-200 uppercase font-bold text-xs tracking-wider">
+                        <tr>
+                            <th className="px-6 py-4">Producto</th>
+                            <th className="px-6 py-4 text-center">Stock Actual</th>
+                            <th className="px-6 py-4 text-center">Venta Mensual</th>
+                            <th className="px-6 py-4 text-center text-emerald-400">Sugerencia Compra</th>
+                            <th className="px-6 py-4 text-center">Estado</th>
                         </tr>
-                    ))
-                )}
-            </tbody>
-        </table>
-      </div>
+                    </thead>
+                    <tbody className="divide-y divide-slate-700">
+                        {productosFiltrados.map(prod => {
+                            const sugerencia = calcularSugerencia(prod, proveedorSeleccionado.leadTime);
+                            const esCritico = prod.stockActual === 0 && prod.ventaMensual > 0;
+                            const esUrgente = sugerencia > 0;
+
+                            return (
+                                <tr key={prod.id} className="hover:bg-slate-700/30 transition-colors">
+                                    <td className="px-6 py-4">
+                                        <div className="font-bold text-white text-base">{prod.nombre}</div>
+                                        <div className="text-xs text-slate-500">{prod.sku}</div>
+                                    </td>
+                                    
+                                    <td className="px-6 py-4 text-center">
+                                        <div className="flex items-center justify-center gap-2">
+                                            <Package size={16} />
+                                            <span className="text-white font-mono text-lg">{prod.stockActual}</span>
+                                        </div>
+                                    </td>
+                                    
+                                    <td className="px-6 py-4 text-center">
+                                        <div className="flex items-center justify-center gap-2">
+                                            <TrendingUp size={16} />
+                                            <span className="text-white font-mono text-lg">{prod.ventaMensual}</span>
+                                        </div>
+                                    </td>
+
+                                    <td className="px-6 py-4 text-center">
+                                        {esUrgente ? (
+                                            <div className="inline-flex flex-col items-center">
+                                                <span className="text-2xl font-bold text-emerald-400">{sugerencia} un.</span>
+                                                {prod.cantidadPorCaja > 0 && (
+                                                    <span className="text-[10px] text-slate-500">
+                                                        ({Math.ceil(sugerencia / prod.cantidadPorCaja)} Cajas aprox)
+                                                    </span>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <span className="text-slate-600 font-bold">-</span>
+                                        )}
+                                    </td>
+
+                                    <td className="px-6 py-4 text-center">
+                                        {esCritico ? (
+                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-red-500/10 text-red-400 border border-red-500/20">
+                                                <AlertTriangle size={12}/> Quiebre
+                                            </span>
+                                        ) : esUrgente ? (
+                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                                <Clock size={12}/> Reponer
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                                <CheckCircle size={12}/> OK
+                                            </span>
+                                        )}
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                        {productosFiltrados.length === 0 && (
+                            <tr>
+                                <td colSpan={5} className="px-6 py-10 text-center text-slate-500">
+                                    No hay productos asociados a este proveedor.
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+            
+            {/* FOOTER DEL SIMULADOR */}
+            <div className="bg-slate-900/50 p-4 border-t border-slate-700 flex justify-between items-center text-xs text-slate-500">
+                <p>Cálculo basado en: (Venta Mensual / 30) × Lead Time - Stock Actual.</p>
+                <div className="flex gap-4">
+                     <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-emerald-500"></div> Stock OK</div>
+                     <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-amber-500"></div> Sugerencia Compra</div>
+                     <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-500"></div> Sin Stock</div>
+                </div>
+            </div>
+        </div>
+      )}
     </div>
   );
 }

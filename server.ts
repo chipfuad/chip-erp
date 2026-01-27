@@ -1,193 +1,58 @@
 import express from 'express';
 import cors from 'cors';
-import { PrismaClient } from '@prisma/client';
+import multer from 'multer'; // Librería para manejar archivos
 
-const prisma = new PrismaClient();
+// Importamos los "expertos" (Controladores)
+import * as productosController from './src/modules/productos/productos.controller';
+import * as proveedoresController from './src/modules/proveedores/proveedores.controller';
+
 const app = express();
+const PORT = 3000;
 
-// Configuraciones básicas
-app.use(cors()); 
+// --- CONFIGURACIÓN DE MULTER (Para subir archivos) ---
+// Guardamos el archivo en la memoria RAM temporalmente para procesarlo rápido
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
+
+// --- MIDDLEWARES ---
+app.use(cors());
 app.use(express.json());
 
-// --- RUTAS (La parte que responde a las peticiones) ---
-
-// 1. Ruta para probar que el servidor vive
+// Ruta de prueba
 app.get('/', (req, res) => {
-  res.send('¡Hola! El servidor Chip ERP está funcionando 🚀');
+  res.send('✅ API Chip ERP v2.0 - Sistema Online y Listo');
 });
 
-// --- PRODUCTOS ---
+// ==========================================
+// 📦 RUTAS DE PRODUCTOS
+// ==========================================
+// CRUD Básico
+app.get('/api/productos', productosController.getProductos);
+app.post('/api/productos', productosController.createProducto);
+app.put('/api/productos/:id', productosController.updateProducto);
+app.delete('/api/productos/:id', productosController.deleteProducto);
 
-// Obtener productos
-app.get('/api/productos', async (req, res) => {
-  try {
-    const productos = await prisma.producto.findMany({
-      orderBy: { id: 'desc' }
-    });
-    res.json(productos);
-  } catch (error) {
-    console.error("Error al obtener productos:", error);
-    res.status(500).json({ error: 'Error al obtener productos' });
-  }
-});
+// 📊 Inteligencia de Negocios
+app.post('/api/productos/historial', productosController.addVentaHistorica);
 
-// CREAR PRODUCTO
-app.post('/api/productos', async (req, res) => {
-  try {
-    // Agregamos 'duracion' a la lista de cosas que recibimos
-    const { sku, nombre, precioFOB, gramaje, paisOrigen, cantidadPorCaja, cantidadPorDisplay, moneda, proveedorId, duracion } = req.body;
-    
-    const nuevo = await prisma.producto.create({
-      data: {
-        sku,
-        nombre,
-        precioFOB,
-        gramaje,
-        paisOrigen,
-        cantidadPorCaja: Number(cantidadPorCaja),
-        cantidadPorDisplay: Number(cantidadPorDisplay),
-        moneda,
-        duracion, // <--- ¡AQUÍ SE GUARDA!
-        proveedorId: Number(proveedorId)
-      }
-    });
-    res.json(nuevo);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Error creando producto' });
-  }
-});
+// 📥 EXCEL: Descargar Plantilla (NUEVO 🌟)
+app.get('/api/productos/plantilla', productosController.descargarPlantilla);
 
-// EDITAR PRODUCTO
-app.put('/api/productos/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    // Aquí también agregamos 'duracion'
-    const { sku, nombre, precioFOB, gramaje, paisOrigen, cantidadPorCaja, cantidadPorDisplay, moneda, proveedorId, duracion } = req.body;
+// 📤 EXCEL: Importar Ventas (Lo usaremos en el siguiente paso)
+// 'archivo' es el nombre del campo que enviaremos desde el Frontend
+app.post('/api/productos/importar', upload.single('archivo'), productosController.importarExcelVentas);
 
-    const actualizado = await prisma.producto.update({
-      where: { id: Number(id) },
-      data: {
-        sku,
-        nombre,
-        precioFOB,
-        gramaje,
-        paisOrigen,
-        cantidadPorCaja: Number(cantidadPorCaja),
-        cantidadPorDisplay: Number(cantidadPorDisplay),
-        moneda,
-        duracion, // <--- ¡AQUÍ SE ACTUALIZA!
-        proveedorId: Number(proveedorId)
-      }
-    });
-    res.json(actualizado);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Error actualizando producto' });
-  }
-});
 
-// Eliminar producto
-app.delete('/api/productos/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    await prisma.producto.delete({
-      where: { id: Number(id) },
-    });
-    res.json({ message: 'Producto eliminado correctamente' });
-  } catch (error) {
-    console.error("Error al eliminar:", error);
-    res.status(500).json({ error: 'Error al eliminar producto' });
-  }
-});
+// ==========================================
+// 🚛 RUTAS DE PROVEEDORES
+// ==========================================
+app.get('/api/proveedores', proveedoresController.getProveedores);
+app.post('/api/proveedores', proveedoresController.createProveedor);
+app.put('/api/proveedores/:id', proveedoresController.updateProveedor);
+app.delete('/api/proveedores/:id', proveedoresController.deleteProveedor);
 
-// --- PROVEEDORES (ACTUALIZADO CON NUEVOS CAMPOS) ---
-
-// Obtener proveedores
-app.get('/api/proveedores', async (req, res) => {
-  try {
-    const proveedores = await prisma.proveedor.findMany({
-      orderBy: { nombre: 'asc' }
-    });
-    res.json(proveedores);
-  } catch (error) {
-    console.error("Error al obtener proveedores:", error);
-    res.status(500).json({ error: 'Error interno' });
-  }
-});
-
-// Crear proveedor
-app.post('/api/proveedores', async (req, res) => {
-  try {
-    // AQUÍ AGREGAMOS LOS NUEVOS CAMPOS
-    const { nombre, pais, ejecutivo, email, telefono, direccion, ciudad, website, notas } = req.body;
-    
-    const nuevoProveedor = await prisma.proveedor.create({
-      data: {
-        nombre,
-        pais,
-        ejecutivo: ejecutivo || '',
-        email: email || '',
-        telefono: telefono || '',
-        // Campos nuevos
-        direccion: direccion || '',
-        ciudad: ciudad || '',
-        website: website || '',
-        notas: notas || ''
-      }
-    });
-    res.json(nuevoProveedor);
-  } catch (error) {
-    console.error("Error al crear proveedor:", error);
-    res.status(500).json({ error: 'Error al guardar proveedor' });
-  }
-});
-
-// Editar proveedor
-app.put('/api/proveedores/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    // AQUÍ AGREGAMOS LOS NUEVOS CAMPOS PARA QUE SE GUARDEN AL EDITAR
-    const { nombre, pais, ejecutivo, email, telefono, direccion, ciudad, website, notas } = req.body;
-    
-    const proveedorActualizado = await prisma.proveedor.update({
-      where: { id: Number(id) },
-      data: {
-        nombre,
-        pais,
-        ejecutivo: ejecutivo || '',
-        email: email || '',
-        telefono: telefono || '',
-        // Campos nuevos
-        direccion: direccion || '',
-        ciudad: ciudad || '',
-        website: website || '',
-        notas: notas || ''
-      }
-    });
-    res.json(proveedorActualizado);
-  } catch (error) {
-    console.error("Error al actualizar proveedor:", error);
-    res.status(500).json({ error: 'Error al actualizar proveedor' });
-  }
-});
-
-// Eliminar proveedor
-app.delete('/api/proveedores/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    await prisma.proveedor.delete({
-      where: { id: Number(id) },
-    });
-    res.json({ message: 'Proveedor eliminado correctamente' });
-  } catch (error) {
-    console.error("Error al eliminar proveedor:", error);
-    res.status(500).json({ error: 'Error al eliminar proveedor' });
-  }
-});
 
 // --- ENCENDER EL MOTOR ---
-const PORT = 3000;
 app.listen(PORT, () => {
-  console.log(`✅ Servidor listo y escuchando en puerto ${PORT}`);
+  console.log(`🚀 Servidor Profesional corriendo en http://localhost:${PORT}`);
 });
