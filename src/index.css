@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    /* Fondo oscuro (Slate-900) y texto claro (Slate-200) */
+    background-color: #0f172a; 
+    color: #e2e8f0;
+    /* Fuente suavizada para que se vea profesional */
+    -webkit-font-smoothing: antialiased;
+  }
+}

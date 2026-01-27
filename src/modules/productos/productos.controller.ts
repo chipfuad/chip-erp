@@ -3,54 +3,107 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// 1. Crear producto
-export const createProduct = async (req: Request, res: Response) => {
+export const getProductos = async (req: Request, res: Response) => {
+  try {
+    const productos = await prisma.producto.findMany({
+      include: {
+        proveedor: true, 
+      },
+    });
+    res.json(productos);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener productos' });
+  }
+};
+
+export const createProducto = async (req: Request, res: Response) => {
   try {
     const { 
-      sku, nombre, gramaje, cantidadPorCaja, 
-      cantidadPorDisplay, precioFOB, paisOrigen, proveedorId 
+        sku, 
+        nombre, 
+        precioFOB, 
+        proveedorId,
+        gramaje,
+        paisOrigen,
+        cantidadPorCaja,
+        cantidadPorDisplay,
+        moneda,
+        duracion,
+        ventaMensual // <--- DATO NUEVO
     } = req.body;
-
-    if (!sku || !nombre) {
-      return res.status(400).json({ error: "Faltan datos obligatorios (SKU o Nombre)" });
-    }
 
     const nuevoProducto = await prisma.producto.create({
       data: {
         sku,
         nombre,
+        precioFOB: Number(precioFOB), 
+        proveedorId: Number(proveedorId),
         gramaje,
         paisOrigen,
-        cantidadPorCaja: cantidadPorCaja ? Number(cantidadPorCaja) : null,
-        cantidadPorDisplay: cantidadPorDisplay ? Number(cantidadPorDisplay) : null,
-        precioFOB: precioFOB ? Number(precioFOB) : null,
-        proveedorId: proveedorId ? Number(proveedorId) : null,
-      }
+        cantidadPorCaja: Number(cantidadPorCaja) || 0,
+        cantidadPorDisplay: Number(cantidadPorDisplay) || 0,
+        moneda: moneda || "USD",
+        duracion,
+        ventaMensual: Number(ventaMensual) || 0 // <--- GUARDAMOS DATO NUEVO
+      },
     });
-
-    return res.json({ message: "Producto creado exitosamente", producto: nuevoProducto });
-
+    res.json(nuevoProducto);
   } catch (error) {
-    console.error("Error creando producto:", error);
-    if ((error as any).code === 'P2002') {
-        return res.status(400).json({ error: "Ese SKU ya existe" });
-    }
-    return res.status(500).json({ error: "Error interno del servidor" });
+    console.error(error); 
+    res.status(500).json({ error: 'Error al crear producto' });
   }
 };
 
-// 2. Obtener TODOS los productos (con su proveedor)
-export const getProducts = async (req: Request, res: Response) => {
-  try {
-    const productos = await prisma.producto.findMany({
-      include: {
-        proveedor: true // ¡Esto es magia! Trae los datos del proveedor automáticamente
-      },
-      orderBy: { id: 'desc' } // Los más nuevos primero
-    });
-    return res.json(productos);
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: "Error obteniendo productos" });
-  }
+// --- AGREGAMOS UPDATE TAMBIÉN AQUÍ ---
+export const updateProducto = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { 
+            sku, 
+            nombre, 
+            precioFOB, 
+            proveedorId,
+            gramaje,
+            paisOrigen,
+            cantidadPorCaja,
+            cantidadPorDisplay,
+            moneda,
+            duracion,
+            ventaMensual // <--- DATO NUEVO
+        } = req.body;
+
+        const productoActualizado = await prisma.producto.update({
+            where: { id: Number(id) },
+            data: {
+                sku,
+                nombre,
+                precioFOB: Number(precioFOB),
+                proveedorId: Number(proveedorId),
+                gramaje,
+                paisOrigen,
+                cantidadPorCaja: Number(cantidadPorCaja) || 0,
+                cantidadPorDisplay: Number(cantidadPorDisplay) || 0,
+                moneda,
+                duracion,
+                ventaMensual: Number(ventaMensual) || 0
+            }
+        });
+
+        res.json(productoActualizado);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error al actualizar producto' });
+    }
+};
+
+export const deleteProducto = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        await prisma.producto.delete({
+            where: { id: Number(id) }
+        });
+        res.json({ message: 'Producto eliminado' });
+    } catch (error) {
+        res.status(500).json({ error: 'Error al eliminar producto' });
+    }
 };

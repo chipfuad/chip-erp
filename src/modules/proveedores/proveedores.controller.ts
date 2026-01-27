@@ -5,71 +5,105 @@ const prisma = new PrismaClient();
 
 export const getProveedores = async (req: Request, res: Response) => {
   try {
-    const lista = await prisma.proveedor.findMany({ orderBy: { nombre: 'asc' } });
-    res.json(lista);
+    const proveedores = await prisma.proveedor.findMany({
+      include: {
+        productos: true 
+      }
+    });
+    res.json(proveedores);
   } catch (error) {
-    res.status(500).json({ error: "Error al obtener proveedores" });
+    res.status(500).json({ error: 'Error al obtener proveedores' });
   }
 };
 
 export const createProveedor = async (req: Request, res: Response) => {
   try {
-    const data = req.body;
-    console.log("📥 CREANDO proveedor:", data); // <--- Chivato 1
+    // 1. Recibimos los datos (incluyendo el nuevo leadTime)
+    const { 
+      nombre, 
+      pais, 
+      ejecutivo, 
+      email, 
+      telefono,
+      direccion,
+      ciudad,
+      website,
+      notas,
+      leadTime 
+    } = req.body;
+
+    // 2. Guardamos en la base de datos
+    const nuevoProveedor = await prisma.proveedor.create({
+      data: {
+        nombre,
+        pais,
+        ejecutivo,
+        email,
+        telefono,
+        direccion,
+        ciudad,
+        website,
+        notas,
+        // Convertimos a número por seguridad, si no viene ponemos 0
+        leadTime: Number(leadTime) || 0 
+      },
+    });
     
-    const nuevo = await prisma.proveedor.create({
-      data: {
-        nombre: data.nombre,
-        pais: data.pais,
-        ejecutivo: data.ejecutivo,
-        email: data.email,
-        telefono: data.telefono,
-        direccion: data.direccion,
-        ciudad: data.ciudad,
-        website: data.website,
-        notas: data.notas
-      }
-    });
-    res.json(nuevo);
+    res.json(nuevoProveedor);
   } catch (error) {
-    console.error("❌ Error creando:", error);
-    res.status(500).json({ error: "Error al crear" });
+    console.error(error);
+    res.status(500).json({ error: 'Error al crear proveedor' });
   }
 };
 
+// --- AGREGAMOS LA FUNCIÓN DE UPDATE QUE FALTABA ---
 export const updateProveedor = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const data = req.body;
-    console.log(`📝 EDITANDO id ${id}. Datos recibidos:`, data); // <--- Chivato 2 (Aquí deberías ver "Shanghai")
-
-    const actualizado = await prisma.proveedor.update({
-      where: { id: Number(id) },
-      data: {
-        nombre: data.nombre,
-        pais: data.pais,
-        ejecutivo: data.ejecutivo,
-        email: data.email,
-        telefono: data.telefono,
-        direccion: data.direccion,
-        ciudad: data.ciudad,
-        website: data.website,
-        notas: data.notas
-      }
-    });
-    res.json(actualizado);
-  } catch (error) {
-    console.error("❌ Error editando:", error);
-    res.status(500).json({ error: "Error al editar" });
-  }
-};
+    try {
+      const { id } = req.params;
+      const { 
+        nombre, 
+        pais, 
+        ejecutivo, 
+        email, 
+        telefono,
+        direccion,
+        ciudad,
+        website,
+        notas,
+        leadTime // <--- Nuevo dato
+      } = req.body;
+  
+      const proveedorActualizado = await prisma.proveedor.update({
+        where: { id: Number(id) },
+        data: {
+          nombre,
+          pais,
+          ejecutivo,
+          email,
+          telefono,
+          direccion,
+          ciudad,
+          website,
+          notas,
+          leadTime: Number(leadTime) || 0
+        },
+      });
+  
+      res.json(proveedorActualizado);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Error al actualizar proveedor' });
+    }
+  };
 
 export const deleteProveedor = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    await prisma.proveedor.delete({ where: { id: Number(id) } });
-    res.json({ message: "Eliminado" });
+    await prisma.proveedor.delete({
+      where: { id: Number(id) },
+    });
+    res.json({ message: 'Proveedor eliminado correctamente' });
   } catch (error) {
-    res.status(500).json({ error: "Error al eliminar" });
+    res.status(500).json({ error: 'Error al eliminar proveedor' });
   }
 };

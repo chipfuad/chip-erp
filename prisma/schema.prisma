@@ -5,39 +5,45 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  // OJO: Si estás usando el archivo local "dev.db", cambia "postgresql" por "sqlite"
+  provider = "postgresql" 
   url      = env("DATABASE_URL")
 }
 
 model Producto {
-  id                 Int      @id @default(autoincrement())
-  sku                String   @unique
+  id                 Int       @id @default(autoincrement())
+  sku                String    @unique
   nombre             String
   precioFOB          Decimal
   gramaje            String?
   paisOrigen         String?
-  cantidadPorCaja    Int      @default(0)
-  cantidadPorDisplay Int      @default(0)
-  moneda             String   @default("USD")
-  duracion           String?  // <--- ¡AGREGA ESTA LÍNEA!
+  cantidadPorCaja    Int       @default(0)
+  cantidadPorDisplay Int       @default(0)
+  moneda             String    @default("USD")
+  duracion           String?
   
+  // --- NUEVO PARA CALCULADORA DE COMPRAS ---
+  ventaMensual       Int       @default(0) // Ventas promedio por mes
+
   proveedorId        Int
   proveedor          Proveedor @relation(fields: [proveedorId], references: [id])
 }
 
 model Proveedor {
-  id        Int      @id @default(autoincrement())
+  id        Int     @id @default(autoincrement())
   nombre    String
   pais      String
   ejecutivo String?
   email     String?
   telefono  String?
   
-  // --- CAMPOS NUEVOS ---
-  direccion String?  // <--- NUEVO (El ? significa que es opcional)
-  ciudad    String?  // <--- NUEVO
-  website   String?  // <--- NUEVO
-  notas     String?  // <--- NUEVO
+  direccion String?
+  ciudad    String?
+  website   String?
+  notas     String?
   
+  // --- NUEVO PARA CALCULADORA DE COMPRAS ---
+  leadTime  Int     @default(0) // Tiempo en días (ej: 120) que tarda en llegar la carga
+
   productos Producto[]
 }

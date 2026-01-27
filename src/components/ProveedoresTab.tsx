@@ -1,275 +1,355 @@
 import React, { useState, useEffect } from 'react';
-import { Building2, MapPin, Phone, Mail, User, Plus, ArrowLeft, Save, Trash2, Globe, FileText, Map } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Truck, Save, X, Building2, MapPin, Globe, Phone, Mail } from 'lucide-react';
 
-// 1. INTERFAZ ACTUALIZADA (Coincide con tu Base de Datos)
 interface Proveedor {
   id: number;
   nombre: string;
   pais: string;
-  ejecutivo: string;
-  email: string;
-  telefono: string;
-  // Campos nuevos (opcionales)
+  ejecutivo?: string;
+  email?: string;
+  telefono?: string;
   direccion?: string;
   ciudad?: string;
   website?: string;
   notas?: string;
+  leadTime: number; // NUEVO CAMPO
 }
 
 export function ProveedoresTab() {
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
-  const [loading, setLoading] = useState(false);
-  
-  // Control de Vistas: 'GRID' (Globos) o 'DETALLE' (Formulario)
-  const [vista, setVista] = useState<'GRID' | 'DETALLE'>('GRID');
-  
-  // Estado del Formulario
-  const [formData, setFormData] = useState<Proveedor>({
-    id: 0, nombre: '', pais: '', ejecutivo: '', email: '', telefono: '',
-    direccion: '', ciudad: '', website: '', notas: ''
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Estado del formulario
+  const [formData, setFormData] = useState({
+    nombre: '',
+    pais: '',
+    ejecutivo: '',
+    email: '',
+    telefono: '',
+    direccion: '',
+    ciudad: '',
+    website: '',
+    notas: '',
+    leadTime: 0
   });
 
-  // --- CARGAR DATOS ---
+  // Cargar datos al iniciar
+  useEffect(() => {
+    fetchProveedores();
+  }, []);
+
   const fetchProveedores = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:3000/api/proveedores');
-      if (res.ok) {
-        const data = await res.json();
-        setProveedores(data);
-      }
+      const response = await fetch('http://localhost:3000/api/proveedores');
+      const data = await response.json();
+      setProveedores(data);
     } catch (error) {
-      console.error("Error al cargar proveedores", error);
+      console.error('Error cargando proveedores:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchProveedores();
-  }, []);
-
-  // --- NAVEGACIÓN Y ACCIONES ---
-  const handleAbrirProveedor = (prov: Proveedor) => {
-    setFormData(prov); // Cargar datos del proveedor clicado
-    setVista('DETALLE');
-  };
-
-  const handleNuevoProveedor = () => {
-    // Limpiar formulario para uno nuevo
-    setFormData({ 
-        id: 0, nombre: '', pais: '', ejecutivo: '', email: '', telefono: '',
-        direccion: '', ciudad: '', website: '', notas: ''
-    });
-    setVista('DETALLE');
-  };
-
-  const handleVolver = () => {
-    setVista('GRID');
-    fetchProveedores(); // Recargar por si hubo cambios
-  };
-
-  const handleGuardar = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      const method = formData.id ? 'PUT' : 'POST';
-      const url = formData.id 
-        ? `http://localhost:3000/api/proveedores/${formData.id}`
-        : 'http://localhost:3000/api/proveedores';
+    const url = editingId 
+      ? `http://localhost:3000/api/proveedores/${editingId}`
+      : 'http://localhost:3000/api/proveedores';
+    
+    const method = editingId ? 'PUT' : 'POST';
 
-      const res = await fetch(url, {
+    try {
+      const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+            ...formData,
+            leadTime: Number(formData.leadTime) || 0
+        }),
       });
 
-      if (res.ok) {
-        alert('✅ Guardado correctamente');
-        handleVolver();
-      } else {
-        alert('⚠️ Error al guardar. Verifica que el servidor Backend esté corriendo.');
+      if (response.ok) {
+        fetchProveedores();
+        cerrarModal();
       }
     } catch (error) {
-      alert('❌ Error de conexión con el servidor.');
+      console.error('Error guardando proveedor:', error);
     }
   };
 
-  const handleEliminar = async () => {
-    if (!formData.id) return;
-    if (!confirm('¿Estás seguro de ELIMINAR este proveedor? Se borrarán sus datos.')) return;
-    
+  const handleEdit = (prov: Proveedor) => {
+    setFormData({
+      nombre: prov.nombre,
+      pais: prov.pais,
+      ejecutivo: prov.ejecutivo || '',
+      email: prov.email || '',
+      telefono: prov.telefono || '',
+      direccion: prov.direccion || '',
+      ciudad: prov.ciudad || '',
+      website: prov.website || '',
+      notas: prov.notas || '',
+      leadTime: prov.leadTime || 0
+    });
+    setEditingId(prov.id);
+    setShowForm(true);
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm('¿Estás seguro de eliminar este proveedor?')) return;
     try {
-      const res = await fetch(`http://localhost:3000/api/proveedores/${formData.id}`, { method: 'DELETE' });
-      if (res.ok) {
-        handleVolver();
-      } else {
-        alert('Error al eliminar');
-      }
+      await fetch(`http://localhost:3000/api/proveedores/${id}`, { method: 'DELETE' });
+      fetchProveedores();
     } catch (error) {
-      alert('Error de conexión');
+      console.error('Error eliminando:', error);
     }
   };
 
-  // --- ESTILOS ---
-  const inputStyle = {
-    width: '100%', padding: '12px', background: '#0f172a',
-    border: '1px solid #334155', borderRadius: '8px', color: 'white', marginTop: '5px'
-  };
-  
-  const labelStyle = { color: '#94a3b8', fontSize: '0.9rem', fontWeight: '500' };
-
-  const cardStyle = {
-    background: '#16213e', borderRadius: '15px', padding: '20px', border: '1px solid #2a2a40',
-    cursor: 'pointer', transition: 'all 0.2s', display: 'flex', flexDirection: 'column' as const,
-    alignItems: 'center', textAlign: 'center' as const, gap: '10px', minHeight: '180px', justifyContent: 'center'
+  const cerrarModal = () => {
+      setShowForm(false);
+      setEditingId(null);
+      setFormData({ nombre: '', pais: '', ejecutivo: '', email: '', telefono: '', direccion: '', ciudad: '', website: '', notas: '', leadTime: 0 });
   };
 
-  // --- RENDERIZADO: VISTA DETALLE (FORMULARIO) ---
-  if (vista === 'DETALLE') {
-    return (
-      <div style={{ animation: 'fadeIn 0.3s' }}>
-        {/* Encabezado del Formulario */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-          <button onClick={handleVolver} style={{ background: 'transparent', border: 'none', color: '#a0a0a0', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '1rem' }}>
-            <ArrowLeft /> Volver al Directorio
-          </button>
-          <div style={{ display: 'flex', gap: '15px' }}>
-             {formData.id !== 0 && (
-                <button onClick={handleEliminar} style={{ background: '#450a0a', color: '#f87171', border: '1px solid #991b1b', padding: '10px 20px', borderRadius: '8px', display: 'flex', gap: '8px', cursor: 'pointer' }}>
-                  <Trash2 size={18} /> Borrar
+  const filteredProveedores = proveedores.filter(p => 
+    p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    p.pais.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  return (
+    <div className="animate-fade-in">
+      {/* 1. ENCABEZADO */}
+      <div className="flex flex-wrap justify-between items-center mb-8 gap-5">
+        <div>
+            <h2 className="text-3xl font-bold text-white m-0">Directorio de Proveedores</h2>
+            <p className="text-slate-400 mt-1">Gestiona tus socios comerciales y tiempos de entrega (Lead Time).</p>
+        </div>
+        
+        <div className="flex gap-4 flex-1 justify-end">
+            <div className="relative min-w-[250px]">
+                <Search className="absolute left-4 top-3 text-slate-400" size={20} />
+                <input 
+                  placeholder="🔍 Buscar empresa o país..." 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full py-3 px-4 pl-12 rounded-full bg-slate-800 border border-slate-700 text-white focus:border-cyan-400 focus:outline-none transition-colors" 
+                />
+            </div>
+            <button 
+              onClick={() => setShowForm(true)}
+              className="bg-cyan-500 hover:bg-cyan-600 text-slate-900 px-6 py-2 rounded-full font-bold flex items-center gap-2 transition-transform hover:scale-105 shadow-lg shadow-cyan-500/20"
+            >
+              <Plus size={20} /> Nuevo Proveedor
+            </button>
+        </div>
+      </div>
+
+      {/* 2. TABLA DE PROVEEDORES */}
+      <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-xl">
+        <table className="w-full text-left border-collapse">
+          <thead className="bg-slate-900 text-slate-400 uppercase text-xs tracking-wider">
+            <tr>
+              <th className="p-5 font-bold border-b border-slate-700">Empresa</th>
+              <th className="p-5 font-bold border-b border-slate-700">País / Ubicación</th>
+              <th className="p-5 font-bold border-b border-slate-700 text-cyan-400 flex items-center gap-2">
+                <Truck size={14}/> Lead Time
+              </th>
+              <th className="p-5 font-bold border-b border-slate-700">Contacto</th>
+              <th className="p-5 font-bold border-b border-slate-700 text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-700">
+            {loading ? (
+                <tr><td colSpan={5} className="p-8 text-center text-slate-500">Cargando datos...</td></tr>
+            ) : filteredProveedores.length === 0 ? (
+                <tr><td colSpan={5} className="p-10 text-center text-slate-500">No se encontraron proveedores.</td></tr>
+            ) : (
+                filteredProveedores.map((prov) => (
+                <tr key={prov.id} className="hover:bg-slate-700/50 transition-colors group">
+                    <td className="p-5">
+                        <div className="font-bold text-white text-lg flex items-center gap-2">
+                            <Building2 size={18} className="text-slate-500" />
+                            {prov.nombre}
+                        </div>
+                        {prov.website && (
+                            <a href={prov.website} target="_blank" rel="noreferrer" className="text-xs text-cyan-400 hover:underline ml-7 flex items-center gap-1 mt-1">
+                                <Globe size={10} /> {prov.website}
+                            </a>
+                        )}
+                    </td>
+                    <td className="p-5">
+                        <div className="text-slate-300 font-medium">{prov.pais}</div>
+                        <div className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                            {prov.ciudad && <><MapPin size={10}/> {prov.ciudad}</>}
+                        </div>
+                    </td>
+                    <td className="p-5">
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${prov.leadTime > 0 ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-slate-700 text-slate-400 border-slate-600'}`}>
+                            <Truck size={12} /> {prov.leadTime > 0 ? `${prov.leadTime} días` : 'Sin definir'}
+                        </span>
+                    </td>
+                    <td className="p-5 text-sm text-slate-400 space-y-1">
+                        {prov.ejecutivo && <div className="text-white font-medium">{prov.ejecutivo}</div>}
+                        {prov.email && <div className="flex items-center gap-1.5 text-xs"><Mail size={12}/> {prov.email}</div>}
+                        {prov.telefono && <div className="flex items-center gap-1.5 text-xs"><Phone size={12}/> {prov.telefono}</div>}
+                    </td>
+                    <td className="p-5 text-right">
+                        <div className="flex justify-end gap-2 opacity-70 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => handleEdit(prov)} className="p-2 rounded-lg bg-slate-700 text-slate-300 hover:bg-cyan-500 hover:text-slate-900 transition-colors">
+                                <Edit2 size={16} />
+                            </button>
+                            <button onClick={() => handleDelete(prov.id)} className="p-2 rounded-lg bg-slate-700 text-slate-300 hover:bg-red-500 hover:text-white transition-colors">
+                                <Trash2 size={16} />
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* 3. MODAL FORMULARIO */}
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-slate-800 rounded-2xl w-full max-w-2xl border border-slate-700 shadow-2xl overflow-hidden">
+            <div className="bg-slate-800 p-6 border-b border-slate-700 flex justify-between items-center">
+              <h3 className="text-xl font-bold text-white">
+                {editingId ? 'Editar Proveedor' : 'Nuevo Proveedor'}
+              </h3>
+              <button onClick={cerrarModal} className="text-slate-400 hover:text-white transition-colors">
+                <X size={24} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSubmit} className="p-6 grid grid-cols-2 gap-6">
+              
+              {/* Información Principal */}
+              <div className="col-span-2 text-cyan-400 text-sm font-bold border-b border-slate-700 pb-2 uppercase tracking-wider">
+                  Información Corporativa
+              </div>
+
+              <div className="col-span-2 md:col-span-1 space-y-1">
+                <label className="text-slate-400 text-sm">Nombre Empresa</label>
+                <input 
+                  type="text" required
+                  className="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-white focus:border-cyan-500 focus:outline-none"
+                  value={formData.nombre}
+                  onChange={e => setFormData({...formData, nombre: e.target.value})}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-slate-400 text-sm">País</label>
+                <input 
+                  type="text" required
+                  className="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-white focus:border-cyan-500 focus:outline-none"
+                  value={formData.pais}
+                  onChange={e => setFormData({...formData, pais: e.target.value})}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-slate-400 text-sm">Ciudad</label>
+                <input 
+                  type="text"
+                  className="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-white focus:border-cyan-500 focus:outline-none"
+                  value={formData.ciudad}
+                  onChange={e => setFormData({...formData, ciudad: e.target.value})}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-slate-400 text-sm">Sitio Web</label>
+                <input 
+                  type="text"
+                  className="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-white focus:border-cyan-500 focus:outline-none"
+                  value={formData.website}
+                  onChange={e => setFormData({...formData, website: e.target.value})}
+                  placeholder="ej: www.proveedor.com"
+                />
+              </div>
+
+              <div className="col-span-2 space-y-1">
+                <label className="text-slate-400 text-sm">Dirección</label>
+                <input 
+                  type="text"
+                  className="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-white focus:border-cyan-500 focus:outline-none"
+                  value={formData.direccion}
+                  onChange={e => setFormData({...formData, direccion: e.target.value})}
+                />
+              </div>
+
+              {/* Logística - DESTACADO */}
+              <div className="col-span-2 bg-cyan-500/5 border border-cyan-500/20 rounded-xl p-4 mt-2">
+                  <div className="flex items-center gap-2 text-cyan-400 text-sm font-bold uppercase tracking-wider mb-2">
+                      <Truck size={16}/> Configuración Logística
+                  </div>
+                  <div>
+                    <label className="text-slate-300 text-sm font-medium mb-1 block">Lead Time (Tiempo de Entrega)</label>
+                    <div className="relative">
+                        <input 
+                        type="number" required min="0"
+                        className="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 pl-3 text-white focus:border-cyan-500 focus:outline-none"
+                        placeholder="0"
+                        value={formData.leadTime}
+                        onChange={e => setFormData({...formData, leadTime: Number(e.target.value)})}
+                        />
+                        <span className="absolute right-3 top-2.5 text-slate-500 text-sm">días</span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">Tiempo promedio desde la emisión de la OC hasta la recepción en bodega.</p>
+                  </div>
+              </div>
+
+              {/* Contacto */}
+              <div className="col-span-2 text-cyan-400 text-sm font-bold border-b border-slate-700 pb-2 mt-2 uppercase tracking-wider">
+                  Contacto Directo
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-slate-400 text-sm">Ejecutivo de Cuenta</label>
+                <input 
+                  type="text"
+                  className="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-white focus:border-cyan-500 focus:outline-none"
+                  value={formData.ejecutivo}
+                  onChange={e => setFormData({...formData, ejecutivo: e.target.value})}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-slate-400 text-sm">Teléfono</label>
+                <input 
+                  type="text"
+                  className="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-white focus:border-cyan-500 focus:outline-none"
+                  value={formData.telefono}
+                  onChange={e => setFormData({...formData, telefono: e.target.value})}
+                />
+              </div>
+
+              <div className="col-span-2 space-y-1">
+                <label className="text-slate-400 text-sm">Email de Contacto</label>
+                <input 
+                  type="email"
+                  className="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-white focus:border-cyan-500 focus:outline-none"
+                  value={formData.email}
+                  onChange={e => setFormData({...formData, email: e.target.value})}
+                />
+              </div>
+
+              <div className="col-span-2 flex justify-end gap-3 mt-4 pt-4 border-t border-slate-700">
+                <button type="button" onClick={cerrarModal} className="px-5 py-2.5 rounded-lg bg-slate-700 text-slate-200 hover:bg-slate-600 font-medium transition-colors">Cancelar</button>
+                <button type="submit" className="bg-cyan-500 hover:bg-cyan-600 text-slate-900 px-6 py-2.5 rounded-lg flex items-center gap-2 font-bold transition-colors shadow-lg shadow-cyan-500/20">
+                  <Save size={18} /> Guardar Proveedor
                 </button>
-             )}
-             <button onClick={handleGuardar} style={{ background: '#e94560', color: 'white', border: 'none', padding: '10px 25px', borderRadius: '8px', display: 'flex', gap: '8px', cursor: 'pointer', fontWeight: 'bold', alignItems: 'center' }}>
-                <Save size={18} /> Guardar Cambios
-             </button>
+              </div>
+            </form>
           </div>
         </div>
-
-        {/* Tarjeta del Formulario */}
-        <div style={{ background: '#16213e', borderRadius: '20px', padding: '40px', maxWidth: '900px', margin: '0 auto', boxShadow: '0 10px 40px rgba(0,0,0,0.3)' }}>
-            
-            <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-                <div style={{ width: '80px', height: '80px', background: '#4cc9f0', borderRadius: '50%', margin: '0 auto 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', color: '#1a1a2e' }}>
-                    <Building2 size={40} />
-                </div>
-                <h2 style={{ margin: 0, fontSize: '2rem', color: 'white' }}>{formData.nombre || 'Nuevo Proveedor'}</h2>
-            </div>
-
-            <form style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '25px' }}>
-                
-                {/* 1. Datos de la Empresa */}
-                <div style={{ gridColumn: 'span 2' }}>
-                    <label style={labelStyle}>Nombre Legal de la Empresa</label>
-                    <input value={formData.nombre} onChange={e => setFormData({...formData, nombre: e.target.value})} style={inputStyle} placeholder="Ej: Shenzhen Technology Co." />
-                </div>
-
-                <div>
-                    <label style={labelStyle}><Globe size={14} style={{display:'inline', marginRight:'5px'}}/> País</label>
-                    <input value={formData.pais} onChange={e => setFormData({...formData, pais: e.target.value})} style={inputStyle} />
-                </div>
-                <div>
-                    <label style={labelStyle}><Map size={14} style={{display:'inline', marginRight:'5px'}}/> Ciudad</label>
-                    <input value={formData.ciudad || ''} onChange={e => setFormData({...formData, ciudad: e.target.value})} style={inputStyle} placeholder="Ej: Shanghai" />
-                </div>
-
-                <div style={{ gridColumn: 'span 2' }}>
-                    <label style={labelStyle}><MapPin size={14} style={{display:'inline', marginRight:'5px'}}/> Dirección Completa</label>
-                    <input value={formData.direccion || ''} onChange={e => setFormData({...formData, direccion: e.target.value})} style={inputStyle} placeholder="Calle, Número, Distrito..." />
-                </div>
-
-                {/* 2. Datos de Contacto */}
-                <div>
-                    <label style={labelStyle}><User size={14} style={{display:'inline', marginRight:'5px'}}/> Ejecutivo de Ventas</label>
-                    <input value={formData.ejecutivo || ''} onChange={e => setFormData({...formData, ejecutivo: e.target.value})} style={inputStyle} />
-                </div>
-                <div>
-                    <label style={labelStyle}><Phone size={14} style={{display:'inline', marginRight:'5px'}}/> Teléfono / WhatsApp</label>
-                    <input value={formData.telefono || ''} onChange={e => setFormData({...formData, telefono: e.target.value})} style={inputStyle} />
-                </div>
-
-                <div>
-                    <label style={labelStyle}><Mail size={14} style={{display:'inline', marginRight:'5px'}}/> Email</label>
-                    <input value={formData.email || ''} onChange={e => setFormData({...formData, email: e.target.value})} style={inputStyle} />
-                </div>
-                <div>
-                    <label style={labelStyle}><Globe size={14} style={{display:'inline', marginRight:'5px'}}/> Sitio Web</label>
-                    <input value={formData.website || ''} onChange={e => setFormData({...formData, website: e.target.value})} style={inputStyle} placeholder="www.ejemplo.com" />
-                </div>
-
-                {/* 3. Notas Adicionales */}
-                <div style={{ gridColumn: 'span 2' }}>
-                    <label style={labelStyle}><FileText size={14} style={{display:'inline', marginRight:'5px'}}/> Notas Internas / Datos Bancarios</label>
-                    <textarea 
-                        value={formData.notas || ''} 
-                        onChange={e => setFormData({...formData, notas: e.target.value})} 
-                        style={{ ...inputStyle, minHeight: '100px', fontFamily: 'inherit' }} 
-                        placeholder="Escribe aquí información importante..." 
-                    />
-                </div>
-            </form>
-        </div>
-      </div>
-    );
-  }
-
-  // --- RENDERIZADO: VISTA GRID (TARJETAS) ---
-  return (
-    <>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-         <div><h2 style={{ margin: 0, fontSize: '2rem' }}>Directorio</h2><p style={{ color: '#a0a0a0', marginTop: '5px' }}>Gestiona tu red de proveedores</p></div>
-         <button onClick={handleNuevoProveedor} style={{ background: '#e94560', color: 'white', border: 'none', padding: '12px 25px', borderRadius: '50px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 4px 15px rgba(233, 69, 96, 0.4)' }}>
-           <Plus size={24} /> Agregar Empresa
-         </button>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '25px' }}>
-        {loading && <div style={{ color: '#a0a0a0' }}>Cargando directorio...</div>}
-        
-        {!loading && proveedores.map(prov => (
-            <div 
-              key={prov.id} 
-              onClick={() => handleAbrirProveedor(prov)}
-              onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.style.boxShadow = '0 10px 25px rgba(76, 201, 240, 0.15)'; e.currentTarget.style.borderColor = '#4cc9f0'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = '#2a2a40'; }}
-              style={cardStyle}
-            >
-                <div style={{ width: '60px', height: '60px', background: 'rgba(76, 201, 240, 0.1)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4cc9f0', marginBottom: '10px' }}>
-                    <Building2 size={30} />
-                </div>
-                <h3 style={{ margin: '0', color: 'white', fontSize: '1.1rem' }}>{prov.nombre}</h3>
-                
-                <div style={{ display:'flex', gap:'5px', flexWrap:'wrap', justifyContent:'center', marginTop:'5px' }}>
-                    <span style={{ fontSize: '0.8rem', background: '#0f172a', padding: '4px 10px', borderRadius: '10px', color: '#94a3b8' }}>
-                        {prov.pais}
-                    </span>
-                    {/* Indicador visual si tiene web */}
-                    {prov.website && (
-                         <span style={{ fontSize: '0.8rem', background: 'rgba(46, 204, 113, 0.2)', padding: '4px 8px', borderRadius: '10px', color: '#2ecc71', display:'flex', alignItems:'center' }} title="Sitio Web Disponible">
-                            <Globe size={12} />
-                         </span>
-                    )}
-                     {/* Indicador visual si tiene notas */}
-                     {prov.notas && (
-                         <span style={{ fontSize: '0.8rem', background: 'rgba(241, 196, 15, 0.2)', padding: '4px 8px', borderRadius: '10px', color: '#f1c40f', display:'flex', alignItems:'center' }} title="Tiene notas">
-                            <FileText size={12} />
-                         </span>
-                    )}
-                </div>
-
-                <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: '1px solid #2a2a40', width: '100%', fontSize: '0.85rem', color: '#a0a0a0' }}>
-                     <User size={14} style={{display:'inline', marginRight:'5px', verticalAlign:'middle'}} /> 
-                     {prov.ejecutivo || 'Sin contacto'}
-                </div>
-            </div>
-        ))}
-
-        {!loading && proveedores.length === 0 && (
-            <div style={{ padding: '40px', color: '#666', gridColumn: '1 / -1', textAlign: 'center' }}>
-                <Building2 size={40} style={{ opacity: 0.3, marginBottom:'10px' }} />
-                <p>No hay proveedores registrados. ¡Agrega el primero!</p>
-            </div>
-        )}
-      </div>
-    </>
+      )}
+    </div>
   );
 }
