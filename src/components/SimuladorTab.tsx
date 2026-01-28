@@ -1,93 +1,167 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator, ArrowLeft, Folder, TrendingUp, Minus, TrendingDown, Clock, AlertTriangle } from 'lucide-react';
+import { Calculator, ArrowLeft, Folder, Plus, Trash2, Send, X } from 'lucide-react';
 
 export function SimuladorTab() {
   const [productos, setProductos] = useState<any[]>([]);
   const [proveedores, setProveedores] = useState<any[]>([]);
   const [provSel, setProvSel] = useState<any>(null);
   const [tendencia, setTendencia] = useState(1.0);
+  const [showEditor, setShowEditor] = useState<number | null>(null);
+  
+  const [nuevaCant, setNuevaCant] = useState("");
+  const [nuevoEstado, setNuevoEstado] = useState("PRODUCCION");
 
-  useEffect(() => {
+  const fetchData = () => {
     fetch('http://localhost:3000/api/productos').then(r => r.json()).then(setProductos);
     fetch('http://localhost:3000/api/proveedores').then(r => r.json()).then(setProveedores);
+  };
+
+  useEffect(() => { fetchData(); }, []);
+
+  // --- LOGICA DE CIERRE POR ESC ---
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowEditor(null);
+        setNuevaCant("");
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  const registrarTransito = async (productoId: number) => {
+    if (!nuevaCant) return;
+    await fetch('http://localhost:3000/api/productos/transito', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        productoId, 
+        cantidad: Number(nuevaCant), 
+        estado: nuevoEstado,
+        fechaPedido: new Date() 
+      })
+    });
+    setNuevaCant("");
+    setShowEditor(null);
+    fetchData();
+  };
+
+  const eliminarTransito = async (id: number) => {
+    await fetch(`http://localhost:3000/api/productos/transito/${id}`, { method: 'DELETE' });
+    fetchData();
+  };
 
   if (provSel) {
     const productosFabrica = productos.filter(p => p.proveedorId === provSel.id);
+    
+    // --- CALCULO DE ALERTA PARA LA FÁBRICA ---
+    const fabricaConAlerta = productosFabrica.some(p => {
+      const vD = p.ventaMensual / 30;
+      const total = p.stockActual + (p.ordenesEnTransito?.reduce((acc: number, o: any) => acc + o.cantidad, 0) || 0);
+      return vD > 0 && (total / vD) <= (provSel.leadTime + 10);
+    });
+
     return (
       <div className="animate-in fade-in duration-500">
-        <button onClick={() => setProvSel(null)} className="flex items-center gap-2 text-slate-400 hover:text-white mb-6 transition-colors">
-          <ArrowLeft size={18}/> Volver a Fábricas
+        <button onClick={() => setProvSel(null)} className="flex items-center gap-2 text-slate-400 hover:text-white mb-6 font-bold uppercase text-xs tracking-widest">
+          <ArrowLeft size={16}/> Volver a Fábricas
         </button>
-        <div className="flex justify-between items-end mb-8">
-          <div>
-            <h2 className="text-3xl font-black text-white uppercase tracking-tighter">Planificación: {provSel.nombre}</h2>
-            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Lead Time: {provSel.leadTime} días</p>
-          </div>
-          <div className="flex bg-slate-800 p-1 rounded-xl border border-slate-700">
-             {[0.8, 1.0, 1.3].map(f => (
-               <button key={f} onClick={() => setTendencia(f)} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${tendencia === f ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>
-                 {f === 0.8 ? 'Baja' : f === 1.0 ? 'Estable' : 'Hot'}
-               </button>
-             ))}
-          </div>
+        
+        <div className="mb-8">
+          <h2 className="text-3xl font-black text-white uppercase tracking-tighter">Planificación: {provSel.nombre}</h2>
+          <p className="text-emerald-500 text-xs font-bold uppercase tracking-widest mt-1 italic">Lead Time: {provSel.leadTime} días</p>
         </div>
 
-        <div className="bg-slate-800 rounded-[2.5rem] border border-slate-700 overflow-hidden shadow-2xl">
-          <table className="w-full text-left">
-            <thead className="bg-slate-900/50 text-slate-500 text-[10px] font-black uppercase tracking-widest">
+        <div className="bg-slate-800 rounded-[2.5rem] border border-slate-700 overflow-hidden shadow-2xl relative">
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-slate-900 text-slate-500 text-[10px] font-black uppercase tracking-widest">
               <tr>
                 <th className="px-8 py-6">Producto</th>
                 <th className="px-6 py-6 text-center">Stock Físico</th>
-                <th className="px-6 py-6 text-center">En Tránsito</th>
-                <th className="px-6 py-6 text-center">Cobertura (Días)</th>
-                <th className="px-6 py-6 text-center text-emerald-400">Sugerencia (5 Meses)</th>
-                <th className="px-6 py-6 text-center">Estado</th>
+                <th className="px-6 py-6 text-center text-blue-400">En Tránsito / Pedidos</th>
+                <th className="px-6 py-6 text-center">Cobertura</th>
+                <th className="px-6 py-6 text-center text-emerald-400">Sugerencia (Ciclo {provSel.leadTime}d)</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-700/50">
-              {productosFabrica.map(p => {
+            <tbody className="divide-y divide-slate-700/40">
+              {productosFabrica.map((p: any) => {
+                const enTransito = p.ordenesEnTransito || [];
                 const ventaD = p.ventaMensual / 30;
-                const transito = p.ordenesEnTransito?.reduce((acc: any, o: any) => acc + o.cantidad, 0) || 0;
-                const total = p.stockActual + transito;
-                const cobertura = ventaD > 0 ? total / ventaD : 999;
+                const totalTransito = enTransito.reduce((acc: number, o: any) => acc + o.cantidad, 0);
+                const totalStock = p.stockActual + totalTransito;
+                const cobertura = ventaD > 0 ? totalStock / ventaD : 999;
                 
-                // PUNTO REORDEN = Lead Time del proveedor + 10 días de margen
                 const puntoReorden = provSel.leadTime + 10;
                 let sugerencia = 0;
-                let estado = "OK";
-
                 if (cobertura <= puntoReorden) {
-                  sugerencia = Math.ceil(p.ventaMensual * 5 * tendencia);
-                  estado = cobertura < provSel.leadTime ? "CRÍTICO" : "REORDEN";
+                  sugerencia = Math.ceil((ventaD * provSel.leadTime) * tendencia);
                 }
 
                 return (
-                  <tr key={p.id} className="hover:bg-slate-700/30 transition-all group">
-                    <td className="px-8 py-5">
-                      <div className="text-white font-bold">{p.nombre}</div>
-                      <div className="text-[10px] text-slate-500 font-mono uppercase">{p.sku}</div>
-                    </td>
-                    <td className="px-6 py-5 text-center text-slate-300 font-mono">{p.stockActual.toLocaleString()}</td>
-                    <td className="px-6 py-5 text-center text-blue-400 font-mono">{transito > 0 ? transito.toLocaleString() : '-'}</td>
-                    <td className="px-6 py-5 text-center font-bold text-xs">
-                      <span className={estado === 'OK' ? 'text-emerald-500' : estado === 'REORDEN' ? 'text-amber-500' : 'text-red-500'}>
-                        {Math.floor(cobertura)} días
-                      </span>
-                    </td>
-                    <td className="px-6 py-5 text-center">
-                      {sugerencia > 0 ? (
-                        <div className="bg-emerald-500/10 border border-emerald-500/20 py-2 px-4 rounded-xl inline-block">
-                          <span className="text-emerald-400 font-black text-base">{sugerencia.toLocaleString()}</span>
+                  <React.Fragment key={p.id}>
+                    <tr className="hover:bg-slate-700/20 transition-all">
+                      <td className="px-8 py-6">
+                        <div className="text-white font-bold">{p.nombre}</div>
+                        <div className="text-[10px] text-slate-500 font-mono mt-1 uppercase tracking-tighter">{p.sku}</div>
+                      </td>
+                      <td className="px-6 py-6 text-center">
+                        <div className="text-slate-200 font-mono font-bold text-base">{p.stockActual.toLocaleString()}</div>
+                        <div className="text-[9px] text-slate-600 uppercase font-black">Bodega</div>
+                      </td>
+                      <td className="px-6 py-6 text-center">
+                        <div className="flex flex-col items-center gap-2">
+                          {enTransito.map((o: any) => (
+                            <div key={o.id} className="flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 px-2 py-1 rounded-lg">
+                              <span className="text-[9px] font-black text-blue-300 uppercase">{o.estado}</span>
+                              <span className="text-blue-400 font-bold text-xs">{o.cantidad.toLocaleString()}</span>
+                              <button onClick={() => eliminarTransito(o.id)} className="text-red-400/50 hover:text-red-400"><Trash2 size={12}/></button>
+                            </div>
+                          ))}
+                          <button onClick={() => setShowEditor(p.id)} className="text-[10px] font-black text-blue-500 hover:text-blue-400 uppercase mt-2 flex items-center gap-1">
+                            <Plus size={12}/> Registrar
+                          </button>
                         </div>
-                      ) : <span className="text-slate-600 text-[10px] font-black uppercase">Cubierto</span>}
-                    </td>
-                    <td className="px-6 py-5 text-center font-black text-[9px]">
-                       <span className={`px-3 py-1 rounded-full border ${estado === 'OK' ? 'border-emerald-500/20 text-emerald-500 bg-emerald-500/5' : 'border-red-500/20 text-red-500 bg-red-500/5'}`}>
-                         {estado}
-                       </span>
-                    </td>
-                  </tr>
+                      </td>
+                      <td className="px-6 py-6 text-center font-black">
+                        <span className={cobertura < provSel.leadTime ? 'text-red-500' : 'text-emerald-500'}>{Math.floor(cobertura)} DÍAS</span>
+                      </td>
+                      <td className="px-6 py-6 text-center font-black text-emerald-400 text-lg">
+                        {sugerencia > 0 ? sugerencia.toLocaleString() : '-'}
+                      </td>
+                    </tr>
+                    
+                    {showEditor === p.id && (
+                      <>
+                        {/* OVERLAY PARA CERRAR AL HACER CLICK AFUERA ✅ */}
+                        <div className="fixed inset-0 z-40" onClick={() => setShowEditor(null)} />
+                        
+                        <tr className="bg-slate-900/80 relative z-50 animate-in slide-in-from-top-2">
+                          <td colSpan={5} className="px-8 py-6 border-l-4 border-blue-500">
+                            <div className="flex items-end gap-6">
+                              <div className="flex flex-col gap-2">
+                                <span className="text-[10px] font-black text-slate-500 uppercase">Cantidad</span>
+                                <input type="number" className="bg-slate-950 border border-slate-700 rounded-xl px-4 py-2 text-white outline-none focus:border-blue-500 w-40" value={nuevaCant} onChange={e => setNuevaCant(e.target.value)} autoFocus />
+                              </div>
+                              <div className="flex flex-col gap-2">
+                                <span className="text-[10px] font-black text-slate-500 uppercase">Estado</span>
+                                <select className="bg-slate-950 border border-slate-700 rounded-xl px-4 py-2 text-white outline-none focus:border-blue-500 text-xs font-bold" value={nuevoEstado} onChange={e => setNuevoEstado(e.target.value)}>
+                                  <option value="PRODUCCION">En Producción</option>
+                                  <option value="TRANSITO">En Tránsito</option>
+                                </select>
+                              </div>
+                              <button onClick={() => registrarTransito(p.id)} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-xl text-xs font-black uppercase flex items-center gap-2">
+                                <Send size={14}/> Confirmar
+                              </button>
+                              <button onClick={() => setShowEditor(null)} className="text-slate-500 hover:text-white p-2.5 bg-slate-800 rounded-xl">
+                                <X size={16} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      </>
+                    )}
+                  </React.Fragment>
                 );
               })}
             </tbody>
@@ -100,22 +174,23 @@ export function SimuladorTab() {
   return (
     <div className="animate-in fade-in duration-500">
       <header className="mb-12">
-        <h2 className="text-4xl font-black text-white tracking-tighter uppercase">Planificador MRP</h2>
-        <p className="text-slate-500 mt-2 font-bold text-xs uppercase tracking-widest">Selecciona una fábrica para analizar ciclos de 5 meses</p>
+        <h2 className="text-4xl font-black text-white uppercase tracking-tighter">Planificador MRP</h2>
       </header>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {proveedores.map(p => {
-          const prodsCount = productos.filter(pr => pr.proveedorId === p.id).length;
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        {proveedores.map((p: any) => {
+          // Lógica de color de carpeta recuperada ✅
+          const prodProv = productos.filter(pr => pr.proveedorId === p.id);
+          const tieneAlerta = prodProv.some(pr => {
+            const vD = pr.ventaMensual / 30;
+            const t = pr.stockActual + (pr.ordenesEnTransito?.reduce((acc: any, o: any) => acc + o.cantidad, 0) || 0);
+            return vD > 0 && (t / vD) <= (p.leadTime + 10);
+          });
+
           return (
-            <div key={p.id} onClick={() => setProvSel(p)} className="bg-slate-900 border border-slate-800 p-8 rounded-[2rem] hover:border-emerald-500/50 hover:bg-slate-800 transition-all cursor-pointer group flex flex-col items-center text-center shadow-xl">
-              <div className="p-4 bg-slate-800 rounded-2xl mb-6 group-hover:bg-emerald-500/10 transition-colors">
-                <Folder className="text-slate-600 group-hover:text-emerald-400" size={32} />
-              </div>
-              <h3 className="text-white font-black text-xl uppercase tracking-tighter">{p.nombre}</h3>
-              <div className="mt-4 flex flex-col gap-1">
-                <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest">{prodsCount} productos</span>
-                <span className="text-[10px] text-emerald-500 font-black uppercase tracking-widest">LT: {p.leadTime} días</span>
-              </div>
+            <div key={p.id} onClick={() => setProvSel(p)} className="bg-slate-900 border border-slate-800 p-8 rounded-[3rem] hover:bg-slate-800 transition-all cursor-pointer group flex flex-col items-center shadow-2xl relative text-center">
+              <Folder className={tieneAlerta ? "text-red-500" : "text-slate-600 group-hover:text-emerald-400"} size={40} />
+              <h3 className="text-white font-black text-xl uppercase mt-4">{p.nombre}</h3>
+              <span className="text-[10px] text-emerald-500 font-bold mt-2 italic uppercase">LT: {p.leadTime} días</span>
             </div>
           );
         })}
