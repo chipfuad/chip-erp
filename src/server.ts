@@ -31,18 +31,22 @@ app.get('/api/productos', productosController.getProductos);
 app.post('/api/productos', productosController.createProducto);
 app.put('/api/productos/:id', productosController.updateProducto);
 app.delete('/api/productos/:id', productosController.deleteProducto);
+
+// Órdenes en Tránsito
 app.post('/api/productos/transito', productosController.crearOrdenTransito);
 app.put('/api/productos/transito/:id', productosController.updateOrdenTransito);
 app.delete('/api/productos/transito/:id', productosController.deleteOrdenTransito);
 
-// 📊 Inteligencia de Negocios
+// 📊 Inteligencia de Negocios y Proyección
 app.post('/api/productos/historial', productosController.addVentaHistorica);
 
-// 📥 EXCEL: Descargar Plantilla (NUEVO 🌟)
+// ✨ NUEVA RUTA: Actualización Semanal / Proyección de Cierre de Mes
+app.put('/api/productos/venta-parcial/:id', productosController.updateVentaParcial);
+
+// 📥 EXCEL: Descargar Plantilla
 app.get('/api/productos/plantilla', productosController.descargarPlantilla);
 
-// 📤 EXCEL: Importar Ventas (Lo usaremos en el siguiente paso)
-// 'archivo' es el nombre del campo que enviaremos desde el Frontend
+// 📤 EXCEL: Importar Ventas
 app.post('/api/productos/importar', upload.single('archivo'), productosController.importarExcelVentas);
 
 
@@ -53,7 +57,6 @@ app.get('/api/proveedores', proveedoresController.getProveedores);
 app.post('/api/proveedores', proveedoresController.createProveedor);
 app.put('/api/proveedores/:id', proveedoresController.updateProveedor);
 app.delete('/api/proveedores/:id', proveedoresController.deleteProveedor);
-
 
 
 // --- ENCENDER EL MOTOR ---
