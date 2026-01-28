@@ -21,20 +21,20 @@ const limpiarNumero = (valor: any): number => {
 
 // --- CRUD BÁSICO ---
 
+// GET: Obtener todos los productos
 export const getProductos = async (req: Request, res: Response) => {
   try {
     const productos = await prisma.producto.findMany({
-      include: { 
-        proveedor: true,
-        ventasHistoricas: {
-          orderBy: { fecha: 'asc' }
-        }
-      },
-      orderBy: { nombre: 'asc' },
+      include: {
+        proveedor: true,          // Trae datos del proveedor
+        ventasHistoricas: true,   // Trae historial para tendencias
+        ordenesEnTransito: true   // <--- ¡ESTA ES LA LÍNEA QUE FALTA! 🔑
+      }
     });
     res.json(productos);
   } catch (error) {
-    res.status(500).json({ error: 'Error al obtener productos' });
+    console.error(error);
+    res.status(500).json({ error: 'Error obteniendo productos' });
   }
 };
 
@@ -283,5 +283,58 @@ export const importarExcelVentas = async (req: Request, res: Response) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error importando Excel' });
+  }
+
+};// --- FUNCIÓN PARA CREAR ORDEN EN TRÁNSITO ---
+export const crearOrdenTransito = async (req: Request, res: Response) => {
+  try {
+    const { productoId, cantidad, fechaPedido, estado } = req.body;
+    
+    // Calculamos fecha llegada estimada (simple: +30 días por defecto)
+    const llegada = new Date(fechaPedido);
+    llegada.setDate(llegada.getDate() + 30); 
+
+    const orden = await prisma.ordenEnTransito.create({
+      data: {
+        productoId: Number(productoId),
+        cantidad: Number(cantidad),
+        fechaPedido: new Date(fechaPedido),
+        fechaLlegadaEst: llegada,
+        estado: estado || 'PRODUCCION'
+      }
+    });
+    res.json(orden);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error creando orden en tránsito' });
+  }
+};
+// Actualizar una orden existente
+export const updateOrdenTransito = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { cantidad, estado } = req.body;
+
+    const ordenActualizada = await prisma.ordenEnTransito.update({
+      where: { id: Number(id) },
+      data: {
+        cantidad: Number(cantidad),
+        estado: estado
+      }
+    });
+    res.json(ordenActualizada);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al actualizar la orden' });
+  }
+};
+export const deleteOrdenTransito = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    await prisma.ordenEnTransito.delete({
+      where: { id: Number(id) }
+    });
+    res.json({ message: 'Orden eliminada' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al eliminar la orden' });
   }
 };

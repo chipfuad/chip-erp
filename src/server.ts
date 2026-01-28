@@ -3,8 +3,8 @@ import cors from 'cors';
 import multer from 'multer'; // Librería para manejar archivos
 
 // Importamos los "expertos" (Controladores)
-import * as productosController from './src/modules/productos/productos.controller';
-import * as proveedoresController from './src/modules/proveedores/proveedores.controller';
+import * as productosController from './modules/productos/productos.controller';
+import * as proveedoresController from './modules/proveedores/proveedores.controller';
 
 const app = express();
 const PORT = 3000;
@@ -31,6 +31,9 @@ app.get('/api/productos', productosController.getProductos);
 app.post('/api/productos', productosController.createProducto);
 app.put('/api/productos/:id', productosController.updateProducto);
 app.delete('/api/productos/:id', productosController.deleteProducto);
+app.post('/api/productos/transito', productosController.crearOrdenTransito);
+app.put('/api/productos/transito/:id', productosController.updateOrdenTransito);
+app.delete('/api/productos/transito/:id', productosController.deleteOrdenTransito);
 
 // 📊 Inteligencia de Negocios
 app.post('/api/productos/historial', productosController.addVentaHistorica);
@@ -50,6 +53,7 @@ app.get('/api/proveedores', proveedoresController.getProveedores);
 app.post('/api/proveedores', proveedoresController.createProveedor);
 app.put('/api/proveedores/:id', proveedoresController.updateProveedor);
 app.delete('/api/proveedores/:id', proveedoresController.deleteProveedor);
+
 
 
 // --- ENCENDER EL MOTOR ---

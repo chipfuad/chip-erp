@@ -1,12 +1,16 @@
 import { Router } from 'express';
-import { createProduct, getProducts } from './productos.controller';
+// CORRECCIÓN: Usamos los nombres en ESPAÑOL (Producto/s)
+import { createProducto, getProductos, crearOrdenTransito } from './productos.controller';
 
 const router = Router();
 
-// POST: Crear producto
-router.post('/', createProduct);
+// POST: Crear producto (Nombre corregido: createProducto)
+router.post('/', createProducto);
 
-// GET: Obtener lista de productos
-router.get('/', getProducts);
+// POST: Crear orden en tránsito
+router.post('/transito', crearOrdenTransito);
+
+// GET: Obtener lista de productos (Nombre corregido: getProductos)
+router.get('/', getProductos);
 
 export default router;

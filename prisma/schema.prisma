@@ -33,6 +33,9 @@ model Producto {
   
   // --- RELACIÓN CON HISTORIAL ---
   ventasHistoricas   VentaHistorica[]
+  
+  // --- RELACIÓN CON ÓRDENES EN TRÁNSITO ---
+  ordenesEnTransito  OrdenEnTransito[]
 }
 
 model Proveedor {
@@ -65,4 +68,14 @@ model VentaHistorica {
 
   // CANDADO ANTI-DUPLICADOS (Vital para la importación)
   @@unique([productoId, fecha])
+}
+model OrdenEnTransito {
+  id              Int      @id @default(autoincrement())
+  productoId      Int
+  producto        Producto @relation(fields: [productoId], references: [id])
+  cantidad        Int
+  fechaPedido     DateTime
+  fechaLlegadaEst DateTime
+  estado          String   // "PRODUCCION", "TRANSITO", "ADUANA"
+  observacion     String?
 }
