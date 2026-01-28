@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator, ArrowLeft, Folder, Plus, Trash2, Send, X } from 'lucide-react';
+import { Calculator, ArrowLeft, Folder, Plus, Trash2, Send, X, Package } from 'lucide-react';
 
 export function SimuladorTab() {
   const [productos, setProductos] = useState<any[]>([]);
@@ -18,7 +18,7 @@ export function SimuladorTab() {
 
   useEffect(() => { fetchData(); }, []);
 
-  // --- LOGICA DE CIERRE POR ESC ---
+  // Lógica de cierre por tecla ESC
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -55,16 +55,9 @@ export function SimuladorTab() {
   if (provSel) {
     const productosFabrica = productos.filter(p => p.proveedorId === provSel.id);
     
-    // --- CALCULO DE ALERTA PARA LA FÁBRICA ---
-    const fabricaConAlerta = productosFabrica.some(p => {
-      const vD = p.ventaMensual / 30;
-      const total = p.stockActual + (p.ordenesEnTransito?.reduce((acc: number, o: any) => acc + o.cantidad, 0) || 0);
-      return vD > 0 && (total / vD) <= (provSel.leadTime + 10);
-    });
-
     return (
       <div className="animate-in fade-in duration-500">
-        <button onClick={() => setProvSel(null)} className="flex items-center gap-2 text-slate-400 hover:text-white mb-6 font-bold uppercase text-xs tracking-widest">
+        <button onClick={() => setProvSel(null)} className="flex items-center gap-2 text-slate-400 hover:text-white mb-6 font-bold uppercase text-xs tracking-widest transition-colors">
           <ArrowLeft size={16}/> Volver a Fábricas
         </button>
         
@@ -80,6 +73,7 @@ export function SimuladorTab() {
                 <th className="px-8 py-6">Producto</th>
                 <th className="px-6 py-6 text-center">Stock Físico</th>
                 <th className="px-6 py-6 text-center text-blue-400">En Tránsito / Pedidos</th>
+                <th className="px-6 py-6 text-center">Venta Prom.</th>
                 <th className="px-6 py-6 text-center">Cobertura</th>
                 <th className="px-6 py-6 text-center text-emerald-400">Sugerencia (Ciclo {provSel.leadTime}d)</th>
               </tr>
@@ -100,14 +94,13 @@ export function SimuladorTab() {
 
                 return (
                   <React.Fragment key={p.id}>
-                    <tr className="hover:bg-slate-700/20 transition-all">
+                    <tr className="hover:bg-slate-700/20 transition-all group">
                       <td className="px-8 py-6">
                         <div className="text-white font-bold">{p.nombre}</div>
                         <div className="text-[10px] text-slate-500 font-mono mt-1 uppercase tracking-tighter">{p.sku}</div>
                       </td>
-                      <td className="px-6 py-6 text-center">
-                        <div className="text-slate-200 font-mono font-bold text-base">{p.stockActual.toLocaleString()}</div>
-                        <div className="text-[9px] text-slate-600 uppercase font-black">Bodega</div>
+                      <td className="px-6 py-6 text-center font-mono text-slate-200 font-bold">
+                        {p.stockActual.toLocaleString()}
                       </td>
                       <td className="px-6 py-6 text-center">
                         <div className="flex flex-col items-center gap-2">
@@ -123,6 +116,9 @@ export function SimuladorTab() {
                           </button>
                         </div>
                       </td>
+                      <td className="px-6 py-6 text-center text-slate-300 font-bold">
+                        {Math.round(p.ventaMensual).toLocaleString()}
+                      </td>
                       <td className="px-6 py-6 text-center font-black">
                         <span className={cobertura < provSel.leadTime ? 'text-red-500' : 'text-emerald-500'}>{Math.floor(cobertura)} DÍAS</span>
                       </td>
@@ -133,11 +129,9 @@ export function SimuladorTab() {
                     
                     {showEditor === p.id && (
                       <>
-                        {/* OVERLAY PARA CERRAR AL HACER CLICK AFUERA ✅ */}
                         <div className="fixed inset-0 z-40" onClick={() => setShowEditor(null)} />
-                        
                         <tr className="bg-slate-900/80 relative z-50 animate-in slide-in-from-top-2">
-                          <td colSpan={5} className="px-8 py-6 border-l-4 border-blue-500">
+                          <td colSpan={6} className="px-8 py-6 border-l-4 border-blue-500">
                             <div className="flex items-end gap-6">
                               <div className="flex flex-col gap-2">
                                 <span className="text-[10px] font-black text-slate-500 uppercase">Cantidad</span>
@@ -174,11 +168,11 @@ export function SimuladorTab() {
   return (
     <div className="animate-in fade-in duration-500">
       <header className="mb-12">
-        <h2 className="text-4xl font-black text-white uppercase tracking-tighter">Planificador MRP</h2>
+        <h2 className="text-4xl font-black text-white uppercase tracking-tighter italic">Planificador MRP</h2>
+        <p className="text-slate-500 mt-2 font-bold text-xs uppercase tracking-widest text-center">Fábricas por Ciclo de Suministro</p>
       </header>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
         {proveedores.map((p: any) => {
-          // Lógica de color de carpeta recuperada ✅
           const prodProv = productos.filter(pr => pr.proveedorId === p.id);
           const tieneAlerta = prodProv.some(pr => {
             const vD = pr.ventaMensual / 30;
@@ -189,7 +183,7 @@ export function SimuladorTab() {
           return (
             <div key={p.id} onClick={() => setProvSel(p)} className="bg-slate-900 border border-slate-800 p-8 rounded-[3rem] hover:bg-slate-800 transition-all cursor-pointer group flex flex-col items-center shadow-2xl relative text-center">
               <Folder className={tieneAlerta ? "text-red-500" : "text-slate-600 group-hover:text-emerald-400"} size={40} />
-              <h3 className="text-white font-black text-xl uppercase mt-4">{p.nombre}</h3>
+              <h3 className="text-white font-black text-xl uppercase mt-4 tracking-tighter">{p.nombre}</h3>
               <span className="text-[10px] text-emerald-500 font-bold mt-2 italic uppercase">LT: {p.leadTime} días</span>
             </div>
           );
