@@ -206,10 +206,10 @@ export const importarExcelVentas = async (req: Request, res: Response) => {
         const producto = await tx.producto.findUnique({ where: { sku: String(sku) } });
         
         if (producto) {
-          // --- LÓGICA INTELIGENTE PARA ENCONTRAR STOCK ---
           const keys = Object.keys(row);
           
-          // Busca cualquier columna que se parezca a "Stock" (ignora mayúsculas y espacios)
+          // 1. ACTUALIZAR STOCK ACTUAL (Lógica Inteligente)
+          // Busca columnas como "Stock Actual", "Stock Fisico", etc.
           const keyStock = keys.find(k => {
             const limpia = k.toLowerCase().trim();
             return limpia === 'stock actual' || 
@@ -219,45 +219,56 @@ export const importarExcelVentas = async (req: Request, res: Response) => {
           });
 
           if (keyStock) {
-            const valorOriginal = row[keyStock];
-            const nuevoStock = limpiarNumero(valorOriginal);
-            
-            // Console log para ver si está funcionando
-            console.log(`✅ SKU: ${sku} | Stock Leído: ${nuevoStock}`);
-
+            const nuevoStock = limpiarNumero(row[keyStock]);
+            // Solo mostramos log si encontramos stock para confirmar que funciona
+            // console.log(`✅ SKU: ${sku} | Stock Leído: ${nuevoStock}`);
             await tx.producto.update({
               where: { id: producto.id },
               data: { stockActual: nuevoStock }
             });
           }
-          // ---------------------------------------------
 
-          let totalVentas = 0;
-          let mesesContados = 0;
+          // 2. RECOLECTAR VENTAS (Para análisis de 12 meses)
+          let ventasValidas: { fecha: Date, cantidad: number }[] = [];
 
           for (const key of keys) {
+            // Detectamos columnas de fecha (YYYY-MM o YYYY-M)
             if (/^\d{4}-\d{1,2}$/.test(key)) {
-              const cantidad = limpiarNumero(row[key]);
+              const valorCelda = row[key];
+              const cantidad = limpiarNumero(valorCelda);
+              
               const parts = key.split('-');
               const year = parts[0];
               const month = parts[1].padStart(2, '0');
               const fechaDate = new Date(`${year}-${month}-01T00:00:00Z`);
 
+              // Guardamos en historial (Base de Datos) SIEMPRE
               await tx.ventaHistorica.upsert({
                 where: { productoId_fecha: { productoId: producto.id, fecha: fechaDate } },
                 update: { cantidad: cantidad },
                 create: { productoId: producto.id, fecha: fechaDate, cantidad: cantidad }
               });
 
-              if (cantidad > 0) {
-                totalVentas += cantidad;
-                mesesContados++;
+              // Para el cálculo del promedio, solo consideramos si la celda tenía dato
+              // Si la celda estaba vacía o era 0, asumimos quiebre de stock y no "ensuciamos" el promedio
+              if (valorCelda !== undefined && valorCelda !== null && valorCelda !== '' && cantidad > 0) {
+                ventasValidas.push({ fecha: fechaDate, cantidad });
               }
             }
           }
 
-          if (mesesContados > 0) {
-            const nuevoPromedio = Math.round(totalVentas / mesesContados);
+          // 3. CÁLCULO INTELIGENTE (Últimos 12 meses con datos)
+          if (ventasValidas.length > 0) {
+            // Ordenamos por fecha (del más reciente al más antiguo)
+            ventasValidas.sort((a, b) => b.fecha.getTime() - a.fecha.getTime());
+
+            // Tomamos solo los últimos 12 meses que tengan venta
+            const ultimos12Meses = ventasValidas.slice(0, 12);
+            
+            // Calculamos promedio
+            const sumaTotal = ultimos12Meses.reduce((sum, v) => sum + v.cantidad, 0);
+            const nuevoPromedio = Math.round(sumaTotal / ultimos12Meses.length);
+
             await tx.producto.update({
               where: { id: producto.id },
               data: { ventaMensual: nuevoPromedio }
@@ -268,7 +279,7 @@ export const importarExcelVentas = async (req: Request, res: Response) => {
     });
 
     console.log('🏁 Importación finalizada.');
-    res.json({ message: 'Importación Exitosa (Ventas + Stock)' });
+    res.json({ message: 'Importación Exitosa (12 Meses Móviles)' });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error importando Excel' });
