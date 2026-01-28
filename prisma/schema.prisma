@@ -1,30 +1,32 @@
-// prisma/schema.prisma
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  // OJO: Si estás usando el archivo local "dev.db", cambia "postgresql" por "sqlite"
-  provider = "postgresql" 
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
+// --- MODELOS DE DATOS ---
+
 model Producto {
-  id                 Int       @id @default(autoincrement())
-  sku                String    @unique
+  id                 Int      @id @default(autoincrement())
+  sku                String   @unique
   nombre             String
-  precioFOB          Decimal
+  precioFOB          Decimal  @default(0)
   gramaje            String?
   paisOrigen         String?
-  cantidadPorCaja    Int       @default(0)
-  cantidadPorDisplay Int       @default(0)
-  moneda             String    @default("USD")
+  cantidadPorCaja    Int      @default(0)
+  cantidadPorDisplay Int      @default(0)
+  moneda             String   @default("USD")
   duracion           String?
   
-  // --- DATOS PARA CALCULADORA DE COMPRAS (MRP) ---
-  ventaMensual       Int       @default(0) // Promedio calculado
-  stockActual        Int       @default(0) // Inventario físico actual
+  // --- DATOS PARA CALCULADORA LOGÍSTICA ---
+  ventaMensual       Int      @default(0) // Promedio calculado
+  stockActual        Int      @default(0) // Inventario físico actual
+  
+  // NUEVO: LeadTime específico por producto
+  leadTime           Int      @default(0) 
 
   proveedorId        Int
   proveedor          Proveedor @relation(fields: [proveedorId], references: [id])
@@ -34,9 +36,9 @@ model Producto {
 }
 
 model Proveedor {
-  id        Int     @id @default(autoincrement())
+  id        Int        @id @default(autoincrement())
   nombre    String
-  pais      String
+  pais      String?
   ejecutivo String?
   email     String?
   telefono  String?
@@ -47,17 +49,20 @@ model Proveedor {
   notas     String?
   
   // --- DATOS LOGÍSTICOS ---
-  leadTime  Int     @default(0) // Tiempo en días
+  leadTime  Int        @default(0) // Tiempo en días general
 
   productos Producto[]
 }
 
-// --- NUEVO MODELO: HISTORIAL DE VENTAS ---
+// --- HISTORIAL DE VENTAS ---
 model VentaHistorica {
-  id          Int      @id @default(autoincrement())
-  fecha       DateTime
-  cantidad    Int      
+  id         Int      @id @default(autoincrement())
+  fecha      DateTime
+  cantidad   Int      
   
-  productoId  Int
-  producto    Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
+  productoId Int
+  producto   Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
+
+  // CANDADO ANTI-DUPLICADOS (Vital para la importación)
+  @@unique([productoId, fecha])
 }

@@ -1,18 +1,36 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
-import * as XLSX from 'xlsx'; // Importamos librería para leer Excel
+import { prisma } from '../../lib/prisma';
+import * as XLSX from 'xlsx';
 
-const prisma = new PrismaClient();
+// --- Función Auxiliar para Limpiar Números ---
+const limpiarNumero = (valor: any): number => {
+  if (valor === null || valor === undefined) return 0;
+  
+  if (typeof valor === 'number') return valor;
+  
+  if (typeof valor === 'string') {
+    if (valor.trim() === '-') return 0;
+    // Eliminar puntos de miles y comas
+    const limpio = valor.replace(/\./g, '').replace(/,/g, '').replace(/\s/g, '');
+    const numero = parseFloat(limpio);
+    return isNaN(numero) ? 0 : numero;
+  }
+  
+  return 0;
+};
 
-// 1. OBTENER PRODUCTOS
+// --- CRUD BÁSICO ---
+
 export const getProductos = async (req: Request, res: Response) => {
   try {
     const productos = await prisma.producto.findMany({
-      include: {
+      include: { 
         proveedor: true,
-        ventasHistoricas: { orderBy: { fecha: 'asc' } }
+        ventasHistoricas: {
+          orderBy: { fecha: 'asc' }
+        }
       },
-      orderBy: { id: 'desc' }
+      orderBy: { nombre: 'asc' },
     });
     res.json(productos);
   } catch (error) {
@@ -20,220 +38,239 @@ export const getProductos = async (req: Request, res: Response) => {
   }
 };
 
-// 2. CREAR PRODUCTO
 export const createProducto = async (req: Request, res: Response) => {
   try {
-    const { sku, nombre, precioFOB, proveedorId, gramaje, paisOrigen, cantidadPorCaja, cantidadPorDisplay, moneda, duracion, ventaMensual, stockActual } = req.body;
+    const { sku, nombre, proveedorId, stockActual, precioFOB, leadTime } = req.body;
+    
+    const proveedor = await prisma.proveedor.findUnique({
+      where: { id: Number(proveedorId) }
+    });
 
-    const nuevoProducto = await prisma.producto.create({
+    if (!proveedor) {
+      return res.status(400).json({ error: 'Proveedor no encontrado' });
+    }
+
+    const producto = await prisma.producto.create({
       data: {
-        sku, nombre, precioFOB: Number(precioFOB), proveedorId: Number(proveedorId),
-        gramaje, paisOrigen, cantidadPorCaja: Number(cantidadPorCaja) || 0,
-        cantidadPorDisplay: Number(cantidadPorDisplay) || 0, moneda: moneda || "USD",
-        duracion, ventaMensual: Number(ventaMensual) || 0, stockActual: Number(stockActual) || 0
+        sku,
+        nombre,
+        proveedorId: Number(proveedorId),
+        stockActual: Number(stockActual) || 0,
+        ventaMensual: 0,
+        precioFOB: Number(precioFOB) || 0,
+        leadTime: Number(leadTime) || 0
       },
     });
-    res.json(nuevoProducto);
+    res.json(producto);
   } catch (error) {
-    console.error(error);
     res.status(500).json({ error: 'Error al crear producto' });
   }
 };
 
-// 3. ACTUALIZAR PRODUCTO
+export const getProductoById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const producto = await prisma.producto.findUnique({
+      where: { id: Number(id) },
+      include: {
+        proveedor: true,
+        ventasHistoricas: {
+          orderBy: { fecha: 'asc' },
+          take: 24
+        }
+      },
+    });
+
+    if (!producto) return res.status(404).json({ error: 'Producto no encontrado' });
+    res.json(producto);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener producto' });
+  }
+};
+
+// --- FUNCIONES EXTRA ---
+
 export const updateProducto = async (req: Request, res: Response) => {
-    try {
-        const { id } = req.params;
-        const data = req.body;
-        const productoActualizado = await prisma.producto.update({
-            where: { id: Number(id) },
-            data: {
-                sku: data.sku, nombre: data.nombre, precioFOB: Number(data.precioFOB),
-                proveedorId: Number(data.proveedorId), gramaje: data.gramaje, paisOrigen: data.paisOrigen,
-                cantidadPorCaja: Number(data.cantidadPorCaja), cantidadPorDisplay: Number(data.cantidadPorDisplay),
-                moneda: data.moneda, duracion: data.duracion, ventaMensual: Number(data.ventaMensual),
-                stockActual: Number(data.stockActual)
-            }
-        });
-        res.json(productoActualizado);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Error al actualizar producto' });
-    }
+  try {
+    const { id } = req.params;
+    const { sku, nombre, proveedorId, stockActual, precioFOB, leadTime } = req.body;
+
+    const producto = await prisma.producto.update({
+      where: { id: Number(id) },
+      data: {
+        sku,
+        nombre,
+        proveedorId: Number(proveedorId),
+        stockActual: Number(stockActual),
+        precioFOB: Number(precioFOB),
+        leadTime: Number(leadTime)
+      }
+    });
+    res.json(producto);
+  } catch (error) {
+    res.status(500).json({ error: 'Error actualizando producto' });
+  }
 };
 
-// 4. ELIMINAR PRODUCTO
 export const deleteProducto = async (req: Request, res: Response) => {
-    try {
-        await prisma.producto.delete({ where: { id: Number(req.params.id) } });
-        res.json({ message: 'Producto eliminado correctamente' });
-    } catch (error) {
-        res.status(500).json({ error: 'Error al eliminar producto' });
-    }
+  try {
+    const { id } = req.params;
+    await prisma.producto.delete({
+      where: { id: Number(id) }
+    });
+    res.json({ message: 'Producto eliminado' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error eliminando producto' });
+  }
 };
 
-// 5. AGREGAR HISTORIAL (MANUAL)
 export const addVentaHistorica = async (req: Request, res: Response) => {
-    try {
-        const { productoId, fecha, cantidad } = req.body;
-        await prisma.ventaHistorica.create({
-            data: { productoId: Number(productoId), fecha: new Date(fecha), cantidad: Number(cantidad) }
-        });
-        
-        // Recalcular promedio
-        const historial = await prisma.ventaHistorica.findMany({ where: { productoId: Number(productoId) } });
-        if (historial.length > 0) {
-            const total = historial.reduce((acc, curr) => acc + curr.cantidad, 0);
-            const promedio = Math.round(total / historial.length);
-            await prisma.producto.update({ where: { id: Number(productoId) }, data: { ventaMensual: promedio } });
+  try {
+    const { productoId, fecha, cantidad } = req.body;
+    const fechaDate = new Date(fecha);
+
+    const venta = await prisma.ventaHistorica.upsert({
+      where: {
+        productoId_fecha: {
+          productoId: Number(productoId),
+          fecha: fechaDate
         }
-        res.json({ message: 'Historial actualizado' });
-    } catch (error) {
-        res.status(500).json({ error: 'Error al agregar historial' });
-    }
+      },
+      update: { cantidad: Number(cantidad) },
+      create: {
+        productoId: Number(productoId),
+        fecha: fechaDate,
+        cantidad: Number(cantidad)
+      }
+    });
+    res.json(venta);
+  } catch (error) {
+    res.status(500).json({ error: 'Error agregando historial' });
+  }
 };
 
-// 6. GENERAR Y DESCARGAR PLANTILLA EXCEL
+// --- IMPORTACIÓN MASIVA INTELIGENTE ---
+
 export const descargarPlantilla = async (req: Request, res: Response) => {
-    try {
-        const productos = await prisma.producto.findMany({
-            select: { sku: true, nombre: true },
-            orderBy: { nombre: 'asc' }
-        });
+  try {
+    const productos = await prisma.producto.findMany({
+      select: { sku: true, nombre: true, stockActual: true }
+    });
 
-        const fechaHoy = new Date();
-        const columnasMeses: any = {};
-        
-        // Generamos columnas de ejemplo vacías (últimos 6 meses)
-        for (let i = 0; i < 6; i++) {
-            const mes = fechaHoy.getMonth() + 1; 
-            const anio = fechaHoy.getFullYear();
-            const key = `${anio}-${mes.toString().padStart(2, '0')}`;
-            columnasMeses[key] = ""; 
-        }
+    const data = productos.map((p: any) => ({
+      SKU: p.sku,
+      Nombre: p.nombre,
+      "Stock Actual": p.stockActual || 0,
+      "2024-01": 0,
+      "2024-02": 0
+    }));
 
-        const datosExcel = productos.map(prod => ({
-            "SKU": prod.sku,         
-            "Producto": prod.nombre, 
-            ...columnasMeses         
-        }));
-
-        const libro = XLSX.utils.book_new();
-        const hoja = XLSX.utils.json_to_sheet(datosExcel);
-        hoja['!cols'] = [{ wch: 15 }, { wch: 40 }, { wch: 10 }, { wch: 10 }];
-
-        XLSX.utils.book_append_sheet(libro, hoja, "Plantilla Ventas");
-
-        const buffer = XLSX.write(libro, { type: 'buffer', bookType: 'xlsx' });
-        
-        res.setHeader('Content-Disposition', 'attachment; filename="Plantilla_Ventas.xlsx"');
-        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.send(buffer);
-
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Error generando la plantilla' });
+    if (data.length === 0) {
+      data.push({ 
+        SKU: "EJEMPLO", 
+        Nombre: "Test", 
+        "Stock Actual": 1500,
+        "2024-01": 100,
+        "2024-02": 0
+      });
     }
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Plantilla Maestra");
+    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+    res.setHeader('Content-Disposition', 'attachment; filename="plantilla_maestra.xlsx"');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.send(buffer);
+  } catch (error) {
+    res.status(500).json({ error: 'Error generando plantilla' });
+  }
 };
 
-// 7. IMPORTAR EXCEL (LÓGICA REAL ACTIVADA 🚀)
 export const importarExcelVentas = async (req: Request, res: Response) => {
-    try {
-        // A. Validaciones iniciales
-        if (!req.file) {
-            return res.status(400).json({ error: 'No se subió ningún archivo.' });
-        }
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No hay archivo' });
 
-        // B. Leer el archivo desde la memoria
-        const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
-        const sheetName = workbook.SheetNames[0]; // Leer la primera hoja
-        const sheet = workbook.Sheets[sheetName];
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const data = XLSX.utils.sheet_to_json(sheet);
+
+    console.log(`📂 Procesando ${data.length} filas...`);
+
+    await prisma.$transaction(async (tx: any) => {
+      for (const row of data as any[]) {
+        const sku = row['SKU'] || row['sku'];
+        if (!sku) continue;
+
+        const producto = await tx.producto.findUnique({ where: { sku: String(sku) } });
         
-        // Convertir a JSON
-        const datos = XLSX.utils.sheet_to_json(sheet);
+        if (producto) {
+          // --- LÓGICA INTELIGENTE PARA ENCONTRAR STOCK ---
+          const keys = Object.keys(row);
+          
+          // Busca cualquier columna que se parezca a "Stock" (ignora mayúsculas y espacios)
+          const keyStock = keys.find(k => {
+            const limpia = k.toLowerCase().trim();
+            return limpia === 'stock actual' || 
+                   limpia === 'stock fisico' || 
+                   limpia === 'stock físico' || 
+                   limpia === 'stock';
+          });
 
-        let productosProcesados = 0;
-        let ventasRegistradas = 0;
+          if (keyStock) {
+            const valorOriginal = row[keyStock];
+            const nuevoStock = limpiarNumero(valorOriginal);
+            
+            // Console log para ver si está funcionando
+            console.log(`✅ SKU: ${sku} | Stock Leído: ${nuevoStock}`);
 
-        // C. Recorrer cada fila del Excel
-        for (const fila of datos as any[]) {
-            const sku = fila['SKU']?.toString().trim(); // Limpiamos espacios
-            if (!sku) continue; // Si no hay SKU, saltamos
+            await tx.producto.update({
+              where: { id: producto.id },
+              data: { stockActual: nuevoStock }
+            });
+          }
+          // ---------------------------------------------
 
-            // 1. Buscar producto en BD
-            const producto = await prisma.producto.findUnique({ where: { sku } });
-            if (!producto) continue; // Si el SKU no existe en nuestro sistema, saltamos
+          let totalVentas = 0;
+          let mesesContados = 0;
 
-            // 2. Buscar columnas que sean fechas (Formato AAAA-MM, ej: "2024-01")
-            const llaves = Object.keys(fila);
-            let huboCambios = false;
+          for (const key of keys) {
+            if (/^\d{4}-\d{1,2}$/.test(key)) {
+              const cantidad = limpiarNumero(row[key]);
+              const parts = key.split('-');
+              const year = parts[0];
+              const month = parts[1].padStart(2, '0');
+              const fechaDate = new Date(`${year}-${month}-01T00:00:00Z`);
 
-            for (const key of llaves) {
-                // Regex: Busca 4 dígitos, guion, 2 dígitos (ej: 2024-01)
-                if (/^\d{4}-\d{2}$/.test(key)) {
-                    const cantidad = Number(fila[key]);
+              await tx.ventaHistorica.upsert({
+                where: { productoId_fecha: { productoId: producto.id, fecha: fechaDate } },
+                update: { cantidad: cantidad },
+                create: { productoId: producto.id, fecha: fechaDate, cantidad: cantidad }
+              });
 
-                    // Si la cantidad es válida y mayor o igual a 0
-                    if (!isNaN(cantidad) && cantidad >= 0) {
-                        // Construimos fecha ISO (Dia 1 del mes, forzando hora UTC para evitar cambios de dia)
-                        const fechaISO = `${key}-01T00:00:00.000Z`;
-                        
-                        // Buscamos si ya existe ese registro para NO duplicar
-                        const ventaExistente = await prisma.ventaHistorica.findFirst({
-                            where: {
-                                productoId: producto.id,
-                                fecha: new Date(fechaISO)
-                            }
-                        });
-
-                        if (ventaExistente) {
-                            // ACTUALIZAR
-                            await prisma.ventaHistorica.update({
-                                where: { id: ventaExistente.id },
-                                data: { cantidad }
-                            });
-                        } else {
-                            // CREAR NUEVO
-                            await prisma.ventaHistorica.create({
-                                data: {
-                                    productoId: producto.id,
-                                    fecha: new Date(fechaISO),
-                                    cantidad
-                                }
-                            });
-                        }
-                        ventasRegistradas++;
-                        huboCambios = true;
-                    }
-                }
+              if (cantidad > 0) {
+                totalVentas += cantidad;
+                mesesContados++;
+              }
             }
+          }
 
-            // 3. Recalcular Promedio Mensual del Producto (Solo si tocamos sus ventas)
-            if (huboCambios) {
-                const historial = await prisma.ventaHistorica.findMany({
-                    where: { productoId: producto.id }
-                });
-
-                if (historial.length > 0) {
-                    const total = historial.reduce((sum, item) => sum + item.cantidad, 0);
-                    const promedio = Math.round(total / historial.length);
-
-                    await prisma.producto.update({
-                        where: { id: producto.id },
-                        data: { ventaMensual: promedio }
-                    });
-                }
-                productosProcesados++;
-            }
+          if (mesesContados > 0) {
+            const nuevoPromedio = Math.round(totalVentas / mesesContados);
+            await tx.producto.update({
+              where: { id: producto.id },
+              data: { ventaMensual: nuevoPromedio }
+            });
+          }
         }
+      }
+    });
 
-        res.json({ 
-            message: 'Importación completada con éxito', 
-            detalles: `Se actualizaron ${productosProcesados} productos y se procesaron ${ventasRegistradas} registros históricos.` 
-        });
-
-    } catch (error) {
-        console.error("Error crítico en importación:", error);
-        res.status(500).json({ error: 'Ocurrió un error al procesar el archivo Excel.' });
-    }
+    console.log('🏁 Importación finalizada.');
+    res.json({ message: 'Importación Exitosa (Ventas + Stock)' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error importando Excel' });
+  }
 };
